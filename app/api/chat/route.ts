@@ -1,23 +1,16 @@
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
-// This securely initializes the OpenAI client using the key from your .env.local file
+// This securely initializes the OpenAI client with your Open Router key and settings
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
+  baseURL: process.env.OPENROUTER_API_BASE!, // Tells the client to send requests to Open Router
+  defaultHeaders: {
+    "HTTP-Referer": process.env.OPENROUTER_SITE_URL!, // Required by Open Router
+  },
 });
 
-// --- VERIFICATION STEP ---
-// This will print a message to your server terminal when the server starts.
-if (!process.env.OPENAI_API_KEY) {
-  console.error("🔴 FATAL ERROR: OPENAI_API_KEY environment variable is not set!");
-} else {
-  console.log("🟢 OpenAI API Key loaded successfully.");
-}
-
 export async function POST(request: Request) {
-  // This will log every time the API is called
-  console.log("API Route /api/chat hit.");
-
   try {
     const { message, history } = await request.json();
 
@@ -31,23 +24,20 @@ export async function POST(request: Request) {
       { role: 'user', content: message }
     ];
 
+    // Call the OpenAI-compatible endpoint on Open Router
     const chatCompletion = await openai.chat.completions.create({
       messages: messages as any,
-      model: 'gpt-3.5-turbo',
+      // You can use different models supported by Open Router here if you wish
+      model: 'openai/gpt-3.5-turbo', 
       max_tokens: 500,
     });
 
     const aiReply = chatCompletion.choices[0].message.content;
 
-    if (!aiReply) {
-        throw new Error("AI returned an empty response.");
-    }
-
     return NextResponse.json({ reply: aiReply });
 
   } catch (error: any) {
-    console.error('🔴 Error in OpenAI chat API:', error);
-    // Send a more detailed error back to the client for better debugging
+    console.error('Error in Open Router chat API:', error);
     return NextResponse.json({ error: `Failed to get a response from the AI. Server Error: ${error.message}` }, { status: 500 });
   }
 }
