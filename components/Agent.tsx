@@ -1,161 +1,118 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { cn } from "@/lib/utils";
+import { useEffect, useState } from "react";
 import { vapi } from "@/lib/vapi.sdk";
-import { interviewer } from "@/constants";
-import { createFeedback } from "@/lib/actions/general.action";
-
-// Define enums and interfaces at the top level for clarity
-enum CallStatus {
-  INACTIVE = "INACTIVE",
-  CONNECTING = "CONNECTING",
-  ACTIVE = "ACTIVE",
-  FINISHED = "FINISHED",
-}
-
-interface SavedMessage {
-  role: "user" | "system" | "assistant";
-  content: string;
-}
+import { Button } from "@/components/ui/button";
+import { Play, Phone, Bot, Loader2 } from 'lucide-react';
+import type { InterviewState } from '@/types';
+import { toast } from "sonner";
 
 interface AgentProps {
-    userName: string;
-    userId: string;
-    interviewId?: string;
-    feedbackId?: string;
-    type: 'generate' | 'practice';
-    questions?: string[];
-    profileImage?: string;
-    onStartCall?: () => Promise<boolean>; // Function to request camera, returns true on success
-    onEndCall?: () => void; // Function to stop camera
+  interviewState: InterviewState;
+  latestAiMessage: string | null;
+  onStartCall: () => Promise<boolean>;
+  onEndCall: () => void;
+  onNewMessage: (message: { role: 'user' | 'assistant', content: string }) => void;
+  userName: string;
+  userId: string;
+  type: 'generate' | 'practice';
 }
 
-interface Message {
-    type: string;
-    transcriptType?: string;
-    role: 'user' | 'system' | 'assistant';
-    transcript: string;
+interface VapiMessage {
+  type: string;
+  role: 'user' | 'system' | 'assistant';
+  transcriptType?: string;
+  transcript: string;
 }
 
-const Agent = ({ userName, userId, interviewId, feedbackId, type, questions, onStartCall, onEndCall }: AgentProps) => {
-  const router = useRouter();
-  const [callStatus, setCallStatus] = useState<CallStatus>(CallStatus.INACTIVE);
-  const [messages, setMessages] = useState<SavedMessage[]>([]);
-  const [lastMessage, setLastMessage] = useState<string>("");
+const Agent = ({ interviewState, latestAiMessage, onStartCall, onEndCall, onNewMessage, userName, userId, type }: AgentProps) => {
+  const [isConnecting, setIsConnecting] = useState(false);
 
   useEffect(() => {
-    // Define the event handlers with names
-    const onCallStartHandler = () => setCallStatus(CallStatus.ACTIVE);
+    const onCallStartHandler = () => setIsConnecting(false);
     const onCallEndHandler = () => {
-        setCallStatus(CallStatus.FINISHED);
-        onEndCall?.(); 
+      setIsConnecting(false);
+      onEndCall();
     };
-    const onMessageHandler = (message: Message) => {
+    
+    const onMessageHandler = (message: VapiMessage) => {
       if (message.type === "transcript" && message.transcriptType === "final") {
-        setMessages((prev) => [...prev, { role: message.role, content: message.transcript }]);
+        onNewMessage({ role: message.role, content: message.transcript });
       }
     };
+    
     const onErrorHandler = (error: any) => {
       console.error("Vapi Error Event:", error);
-      setCallStatus(CallStatus.INACTIVE);
-      onEndCall?.(); 
+      setIsConnecting(false);
+      
+      const errorMessage = error?.message || "An unknown error occurred.";
+      if (errorMessage.includes("Meeting has ended") || errorMessage.includes("no-room") || errorMessage.includes("ejected")) {
+        toast.error("The interview room expired before connecting. This is a Vapi configuration issue. Please try again.");
+      } else {
+        toast.error(`Connection Error: ${errorMessage}`);
+      }
+      onEndCall(); 
     };
 
-    // Attach the named handlers
     vapi.on("call-start", onCallStartHandler);
     vapi.on("call-end", onCallEndHandler);
     vapi.on("message", onMessageHandler);
     vapi.on("error", onErrorHandler);
 
-    // Return a cleanup function that removes the EXACT same handlers
     return () => {
       vapi.off("call-start", onCallStartHandler);
       vapi.off("call-end", onCallEndHandler);
       vapi.off("message", onMessageHandler);
       vapi.off("error", onErrorHandler);
     };
-  }, [onEndCall]);
-
-  useEffect(() => {
-    if (messages.length > 0) {
-      setLastMessage(messages[messages.length - 1].content);
-    }
-    // ... your feedback logic ...
-  }, [messages, callStatus, feedbackId, interviewId, router, type, userId]);
+  }, [onEndCall, onNewMessage]);
 
   const handleCall = async () => {
-    setCallStatus(CallStatus.CONNECTING);
-    
-    // 1. First, ask the parent to request camera permission
-    const permissionGranted = await onStartCall?.();
-    
-    // 2. Only proceed if permission was granted
+    setIsConnecting(true);
+    const permissionGranted = await onStartCall();
     if (!permissionGranted) {
-        console.log("Camera permission denied by user. Aborting call.");
-        setCallStatus(CallStatus.INACTIVE); 
-        return; 
-    }
-
-    // 3. Now that camera is on, start the Vapi call
-    const workflowId = process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID;
-    if (!workflowId) {
-      console.error("FATAL: VAPI Workflow ID is not defined.");
-      alert("Configuration Error: The Workflow ID is missing.");
-      setCallStatus(CallStatus.INACTIVE);
-      onEndCall?.();
+      setIsConnecting(false);
       return;
     }
-    
+    const workflowId = process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID;
+    if (!workflowId) {
+      toast.error("VAPI Workflow ID is not configured.");
+      setIsConnecting(false);
+      onEndCall();
+      return;
+    }
     try {
-      if (type === "generate") {
-        await vapi.start(workflowId, {
-          variableValues: { username: userName, userid: userId },
-        });
-      } else {
-        // ... other call type logic ...
-      }
-    } catch (error) {
-        console.error("Error during vapi.start():", error);
-        setCallStatus(CallStatus.INACTIVE);
-        onEndCall?.();
+      await vapi.start(workflowId, { variableValues: { username: userName, userid: userId } });
+    } catch (error: any) {
+      console.error("Error starting Vapi call:", error);
+      toast.error(`Failed to initiate call: ${error.message}`);
+      setIsConnecting(false);
+      onEndCall();
     }
   };
 
-  const handleDisconnect = () => {
-    vapi.stop(); // This will trigger the 'call-end' event, which calls onEndCall
-  };
+  const handleDisconnect = () => { vapi.stop(); };
+  
+  if (interviewState === 'ended') return null;
+
+  if (interviewState === 'in_progress') {
+    return (
+      <div className="w-full max-w-4xl flex justify-between items-center bg-slate-900/70 border border-slate-700 rounded-full p-3 animate-fadeIn shadow-lg">
+        <div className="flex items-center gap-3 pl-3">
+          <div className="flex-shrink-0 w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center"><Bot size={20} className="text-purple-300" /></div>
+          <p className="text-slate-300 text-lg font-medium truncate hidden sm:block">{latestAiMessage || "AI is thinking..."}</p>
+        </div>
+        <Button onClick={handleDisconnect} className="bg-red-600 text-white font-bold h-12 px-6 rounded-full text-base hover:bg-red-700 transition-transform hover:scale-105 flex items-center gap-2"><Phone className="h-5 w-5" />End Call</Button>
+      </div>
+    );
+  }
 
   return (
-    <>
-      {messages.length > 0 && (
-        <div className="w-full max-w-xl p-4 mb-6 bg-slate-800/50 rounded-lg text-center border border-slate-700">
-          <p className={cn("transition-opacity duration-500", "animate-fadeIn opacity-100 text-lg")}>
-            {lastMessage}
-          </p>
-        </div>
-      )}
-
-      <div className="w-full flex justify-center">
-        {callStatus !== CallStatus.ACTIVE ? (
-          <button
-            className="bg-green-500 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-all duration-300 hover:bg-green-600 hover:shadow-green-500/30 disabled:opacity-50"
-            onClick={handleCall}
-            disabled={callStatus === CallStatus.CONNECTING}
-          >
-            {callStatus === CallStatus.CONNECTING ? "Connecting..." : "Call"}
-          </button>
-        ) : (
-          <button
-            className="bg-red-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-all duration-300 hover:bg-red-700 hover:shadow-red-500/30"
-            onClick={handleDisconnect}
-          >
-            End Call
-          </button>
-        )}
-      </div>
-    </>
+    <div className="w-full flex justify-center">
+      <Button onClick={handleCall} disabled={isConnecting} className="bg-green-500 text-black font-bold h-14 px-8 rounded-full text-lg hover:bg-green-600 transition-transform hover:scale-105 disabled:opacity-70 disabled:scale-100 flex items-center gap-2">
+        {isConnecting ? (<><Loader2 className="h-6 w-6 animate-spin" />Connecting...</>) : (<><Play className="h-6 w-6" />Start Interview</>)}
+      </Button>
+    </div>
   );
 };
 

@@ -16,54 +16,53 @@ const ShortAnswerIcon = () => (<svg className="w-28 h-28 text-slate-100" fill="c
 const MedicalIcon = () => (<svg className="w-28 h-28 text-slate-100" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L1 21h22L12 2zm1 16h-2v-2h2v2zm0-4h-2V7h2v7z"/></svg>);
 const PuzzlesIcon = () => (<svg className="w-28 h-28 text-slate-100" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm-1 11v-2h-2v2H9v2h2v2h2v-2h2v-2h-2zm-1-9L18 8h-5V3z"/></svg>);
 
+// --- Helper function to convert text to a URL-friendly slug (kebab-case) ---
+const toKebabCase = (str: string) =>
+  str.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
 
 // --- Data for all 12 cards, with SVG icons ---
 const aptitudeCategories = [
-  { title: "General Aptitude", icon: <GeneralAptitudeIcon />, links: ["Arithmetic Aptitude", "Data Interpretation", "Online Aptitude Test", "Data Interpretation Test"] },
-  { title: "Verbal and Reasoning", icon: <ReasoningIcon />, links: ["Verbal Ability", "Logical Reasoning", "Verbal Reasoning", "Non Verbal Reasoning"] },
+  { title: "General Aptitude", icon: <GeneralAptitudeIcon />, links: ["Arithmetic Aptitude", "Data Interpretation Test"] },
   { title: "Current Affairs & GK", icon: <GkIcon />, links: ["Current Affairs", "Basic General Knowledge", "General Science"] },
-  { title: "Interview", icon: <InterviewIcon />, links: ["Placement Papers", "Group Discussion", "HR Interview"] },
-  { title: "Engineering", icon: <EngineeringIcon />, links: ["Mechanical Engineering", "Civil Engineering", "ECE, EEE, CSE", "Chemical Engineering"] },
-  { title: "Programming", icon: <ProgrammingIcon />, links: ["C Programming", "C++ Programming", "Java Programming"] },
-  { title: "Online Tests", icon: <OnlineTestIcon />, links: ["Aptitude Test", "Verbal Ability Test", "Logical Reasoning Test"] },
-  { title: "Technical MCQs", icon: <McqIcon />, links: ["Networking Questions", "Database Questions", "Basic Electronics", "Digital Electronics"] },
-  { title: "Technical Short Answers", icon: <ShortAnswerIcon />, links: ["Software Testing", "The C Language Basics", "SQL Server", "Networking"] },
-  { title: "Medical Science", icon: <MedicalIcon />, links: ["Microbiology", "Biochemistry", "Biotechnology", "Biochemical Engineering"] },
-  { title: "Puzzles", icon: <PuzzlesIcon />, links: ["Sudoku", "Number puzzles", "Missing letters puzzles", "Logical puzzles", "Clock puzzles"] },
+  { title: "Interview", icon: <InterviewIcon />, links: ["Placement Papers", "HR Interview"] },
+  { title: "Engineering", icon: <EngineeringIcon />, links: ["Mechanical Engineering", "Civil Engineering"] },
+  { title: "Programming", icon: <ProgrammingIcon />, links: ["C Programming", "Java Programming"] },
+  { title: "Technical MCQs", icon: <McqIcon />, links: ["Networking Questions", "Database Questions"] },
+  { title: "Medical Science", icon: <MedicalIcon />, links: ["Microbiology", "Biotechnology"] },
+  { title: "Puzzles", icon: <PuzzlesIcon />, links: ["Sudoku", "Number puzzles", "Logical puzzles"] },
 ];
 
 // --- Reusable Card Component with refined styling ---
 const CategoryCard = ({ title, icon, links }: { title: string, icon: React.ReactNode, links: string[] }) => {
     return (
         <div className="bg-white border border-gray-200 rounded-xl p-8 shadow-sm hover:shadow-xl hover:border-green-300 transition-all duration-300 relative overflow-hidden group hover:-translate-y-1 flex flex-col">
-            <div className="absolute -right-5 -bottom-5 text-slate-100 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6">
+            <div className="absolute -right-5 -bottom-5 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6">
                 {icon}
             </div>
             <h2 className="text-2xl font-extrabold text-slate-800 mb-4">{title}</h2>
             <ul className="space-y-2.5 relative mb-6 flex-grow">
                 {links.map((link, index) => (
                     <li key={index}>
-                        <Link href="#" className="text-slate-600 hover:text-green-600 font-medium text-base transition-colors">
+                        {/* CORRECTED LINK with the underscore to match folder name */}
+                        <Link href={`/aptitude_test/${toKebabCase(link)}`} className="text-slate-600 hover:text-green-600 font-medium text-base transition-colors">
                             {link}
                         </Link>
                     </li>
                 ))}
             </ul>
-             <Link href="#" className="text-green-600 hover:text-green-800 text-sm font-bold flex items-center gap-2 self-start">
+             <Link href="#" className="text-green-600 hover:text-green-800 text-sm font-bold flex items-center gap-2 self-start group/readmore">
                 Read more
-                <span className="transition-transform group-hover:translate-x-1">→</span>
+                <span className="transition-transform group-hover/readmore:translate-x-1">→</span>
             </Link>
         </div>
     );
 };
-
 
 export default function AptitudeTestPage() {
   return (
     <div className="bg-slate-50 min-h-screen">
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         
-        {/* Page Header */}
         <div className="text-left mb-12 pb-4 border-b border-gray-200">
           <h1 className="text-4xl font-extrabold text-gray-900">
             Welcome to Prepwise Aptitude
@@ -73,7 +72,6 @@ export default function AptitudeTestPage() {
           </p>
         </div>
 
-        {/* Categories Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {aptitudeCategories.map(category => (
                 <CategoryCard 
@@ -83,7 +81,6 @@ export default function AptitudeTestPage() {
                     links={category.links}
                 />
             ))}
-            {/* An empty card to balance the grid if there are 11 items. You can remove or adjust this. */}
             <div /> 
         </div>
       </main>

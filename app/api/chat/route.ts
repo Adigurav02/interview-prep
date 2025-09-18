@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
+// --- Improved Code: Added checks for environment variables ---
+if (!process.env.OPENAI_API_KEY || !process.env.OPENROUTER_API_BASE || !process.env.OPENROUTER_SITE_URL) {
+  throw new Error('Missing OpenRouter environment variables. Please check your .env.local file.');
+}
+// --- End of Improvement ---
+
 // This securely initializes the OpenAI client with your Open Router key and settings
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
@@ -19,7 +25,12 @@ export async function POST(request: Request) {
     }
 
     const messages = [
-      { role: 'system', content: "You are InterviewGPT, a friendly and expert career coach. Your goal is to help users prepare for job interviews, improve their resumes, and offer insightful career advice. Keep your responses concise, helpful, and encouraging." },
+      // --- FIX: Updated the system prompt to be an Interview Coach ---
+      { 
+        role: 'system', 
+        content: "You are InterviewGPT, a friendly and expert career coach. Your goal is to help users prepare for job interviews, improve their resumes, and offer insightful career advice. Keep your responses concise, helpful, and encouraging." 
+      },
+      // --- END OF FIX ---
       ...(history || []),
       { role: 'user', content: message }
     ];
@@ -27,9 +38,8 @@ export async function POST(request: Request) {
     // Call the OpenAI-compatible endpoint on Open Router
     const chatCompletion = await openai.chat.completions.create({
       messages: messages as any,
-      // You can use different models supported by Open Router here if you wish
       model: 'openai/gpt-3.5-turbo', 
-      max_tokens: 500,
+      max_tokens: 1024,
     });
 
     const aiReply = chatCompletion.choices[0].message.content;
@@ -37,7 +47,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ reply: aiReply });
 
   } catch (error: any) {
-    console.error('Error in Open Router chat API:', error);
+    // This log will now appear in your server terminal for easier debugging
+    console.error('Error in Open Router chat API:', error); 
     return NextResponse.json({ error: `Failed to get a response from the AI. Server Error: ${error.message}` }, { status: 500 });
   }
 }

@@ -1,226 +1,178 @@
 "use client";
 
-import { useState, useRef } from 'react';
-import { X, UploadCloud, FileText, AlertTriangle, Plus, RefreshCw, Loader2 } from 'lucide-react';
-import { Button } from "@/components/ui/button";
+import { useState, useRef, useEffect, FormEvent } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Send, Bot, User, Loader2, Sparkles, Copy, Check, Plus, Mic, AudioLines } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import ReactMarkdown from 'react-markdown';
+import { cn } from '@/lib/utils';
 
-// ====================================
-// ===== RESUME UPLOAD MODAL COMPONENT =====
-// ====================================
-const ResumeUploadModal = ({ onClose, onGenerate, isLoading }: { onClose: () => void, onGenerate: (file: File) => void, isLoading: boolean }) => {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+// Define the structure for a chat message
+interface Message {
+  role: 'user' | 'assistant';
+  content: string;
+}
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file && file.type === "application/pdf" && file.size <= 3 * 1024 * 1024) {
-      setSelectedFile(file);
-    } else {
-      alert("Please upload a PDF file that is 3MB or less.");
-      setSelectedFile(null);
-      if(fileInputRef.current) fileInputRef.current.value = "";
-    }
-  };
-
-  const handleGenerateClick = () => {
-    if (selectedFile) {
-      onGenerate(selectedFile);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex justify-center items-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg p-8 relative text-gray-800">
-        <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-800 transition-colors">
-          <X size={24} />
-        </button>
-        <h2 className="text-2xl font-bold mb-2">Create resume interview questions</h2>
-        <p className="text-gray-600 mb-6">
-          Upload your resume and we will generate personalized interview questions for you to practice.
-        </p>
-        <div 
-          onClick={() => fileInputRef.current?.click()}
-          className="border-2 border-dashed border-gray-300 rounded-lg p-8 flex flex-col justify-center items-center text-center cursor-pointer hover:border-green-500 hover:bg-green-50/50 transition-all"
-        >
-          {selectedFile ? (
-            <>
-              <p className="font-semibold text-green-700">File Selected:</p>
-              <p className="text-sm text-gray-600 mt-1">{selectedFile.name}</p>
-            </>
-          ) : (
-            <>
-              <div className="w-12 h-12 rounded-full bg-green-100 flex justify-center items-center">
-                <UploadCloud size={24} className="text-green-600" />
-              </div>
-              <p className="font-semibold mt-4">Upload your resume</p>
-              <p className="text-sm text-gray-500">.pdf up to 3MB</p>
-            </>
-          )}
-        </div>
-        <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".pdf" className="hidden"/>
-        <Button 
-          disabled={!selectedFile || isLoading}
-          onClick={handleGenerateClick}
-          className="w-full mt-6 bg-green-500 text-white font-semibold py-3 text-base hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-        >
-          {isLoading ? <><Loader2 size={20} className="animate-spin" /> Generating...</> : 'Create questions'}
-        </Button>
-      </div>
-    </div>
-  );
-};
-
-// ====================================
-// ===== MAIN RESUME AI PAGE =====
-// ====================================
-export default function ResumeAiPage() {
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [resumes, setResumes] = useState<{ name: string, file: File, questions: { text: string, status: string, tags: string[] }[] }[]>([]);
-  const [activeResumeIndex, setActiveResumeIndex] = useState<number | null>(null);
+export default function ResumeGeneratorPage() {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [justCopied, setJustCopied] = useState(false);
 
-  const callGenerateApi = async (file: File, existingQuestions: string[] = []) => {
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, isLoading]);
+
+  useEffect(() => {
+    if (messages.length > 0 && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [messages.length]);
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!input.trim() || isLoading) return;
+
+    const userMessage: Message = { role: 'user', content: input };
+    setMessages(prev => [...prev, userMessage]);
+    setInput('');
     setIsLoading(true);
     setError(null);
-    const formData = new FormData();
-    formData.append('resume', file);
-    formData.append('existingQuestions', JSON.stringify(existingQuestions));
+
     try {
-      const response = await fetch('/api/generate-questions', {
+      const response = await fetch('/api/chat', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: input, history: messages }),
       });
+
+      if (!response.ok) throw new Error((await response.json()).error || 'API request failed');
+
       const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || `Error: ${response.statusText}`);
-      }
-      return data.questions.map((q: string) => ({ text: q, status: "Not Practiced", tags: ["Resume-Based"] }));
+      const aiMessage: Message = { role: 'assistant', content: data.reply };
+      
+      setTimeout(() => {
+        setMessages(prev => [...prev, aiMessage]);
+        setIsLoading(false);
+      }, 500);
+
     } catch (err: any) {
-      if (err instanceof SyntaxError) {
-          setError("Failed to get a valid response from the server. Please check your API key and restart the server.");
-      } else {
-          setError(err.message || "An unknown error occurred.");
-      }
-      console.error(err);
-      return [];
-    } finally {
+      setError(err.message);
       setIsLoading(false);
     }
   };
-
-  const handleGenerateQuestions = async (file: File) => {
-    const newQuestions = await callGenerateApi(file);
-    if (newQuestions.length > 0) {
-      const newResume = { name: file.name, file, questions: newQuestions };
-      setResumes(prev => {
-        const updatedResumes = [...prev, newResume];
-        setActiveResumeIndex(updatedResumes.length - 1);
-        return updatedResumes;
-      });
-      setIsModalOpen(false);
+  
+  const handleCopyText = async () => {
+    const lastAiMessage = messages.filter(m => m.role === 'assistant').pop();
+    if (!lastAiMessage || !navigator.clipboard) return;
+    try {
+      await navigator.clipboard.writeText(lastAiMessage.content);
+      setJustCopied(true);
+      setTimeout(() => setJustCopied(false), 2000);
+    } catch (err) {
+      setError("Failed to copy text.");
     }
   };
 
-  const handleLoadMoreQuestions = async () => {
-    if (activeResumeIndex === null) return;
-    const currentResume = resumes[activeResumeIndex];
-    if (!currentResume) return;
-    const existingQuestionTexts = currentResume.questions.map(q => q.text);
-    const newQuestions = await callGenerateApi(currentResume.file, existingQuestionTexts);
-    if (newQuestions.length > 0) {
-      const updatedResumes = [...resumes];
-      updatedResumes[activeResumeIndex].questions.push(...newQuestions);
-      setResumes(updatedResumes);
-    } else if (!error) {
-      alert("AI could not generate more unique questions for this resume.");
-    }
-  };
-
-  const activeResume = activeResumeIndex !== null ? resumes[activeResumeIndex] : null;
+  const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } };
+  const messageVariants = { hidden: { opacity: 0, y: 20, scale: 0.95 }, visible: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.4, ease: "easeOut" } } };
 
   return (
-    <>
-      {isModalOpen && <ResumeUploadModal onClose={() => setIsModalOpen(false)} onGenerate={handleGenerateQuestions} isLoading={isLoading} />}
-      <div className="bg-white min-h-screen w-full flex">
-        {/* Sidebar */}
-        <aside className="w-1/4 bg-gray-50 border-r border-gray-200 p-6 flex flex-col">
-          <h2 className="text-lg font-semibold text-gray-800">Your resumes</h2>
-          <div className="mt-4 space-y-2 flex-grow">
-            {resumes.length === 0 ? (
-              <div className="text-sm text-gray-500 flex items-start gap-2 p-2">
-                <AlertTriangle size={16} className="mt-0.5 flex-shrink-0"/>
-                <span>No Questions Yet. Upload a resume to start.</span>
+    <div className="flex flex-col h-screen bg-[#1F1F1F] text-gray-200 overflow-hidden">
+
+      {messages.length === 0 ? (
+        // --- Welcome Screen ---
+        <div className="flex flex-col items-center justify-center h-full w-full p-4">
+          <motion.h1
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="text-4xl font-semibold text-gray-300 mb-8"
+          >
+            Let's build your standout resume.
+          </motion.h1>
+          <motion.div
+             initial={{ opacity: 0, y: 20, scale: 0.95 }}
+             animate={{ opacity: 1, y: 0, scale: 1 }}
+             transition={{ duration: 0.5, delay: 0.2 }}
+             className="w-full max-w-2xl"
+          >
+            <form onSubmit={handleSubmit} className="relative">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2">
+                <Plus className="text-gray-500" />
               </div>
-            ) : (
-              resumes.map((resume, index) => (
-                <button 
-                  key={index}
-                  onClick={() => setActiveResumeIndex(index)}
-                  className={`w-full text-left flex items-start gap-2 p-2 rounded-md font-semibold transition-colors ${activeResumeIndex === index ? 'bg-green-100 text-green-800' : 'text-gray-600 hover:bg-gray-100'}`}
-                >
-                  <FileText size={16} className="mt-0.5 flex-shrink-0"/>
-                  <span className="truncate">{resume.name}</span>
-                </button>
-              ))
-            )}
-          </div>
-          <div>
-              <button className="text-sm font-semibold text-gray-600 hover:text-black">Get Hired Faster &gt;</button>
-          </div>
-        </aside>
-        {/* Main Content */}
-        <main className="w-3/4 p-10">
-          <div className="flex justify-between items-center mb-6">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Practice questions based on your resume</h1>
-              <p className="text-gray-600">Select a resume to view the questions generated from it, or upload a new resume to get started.</p>
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Tell me about your experience, skills, or the job you want..."
+                className="w-full pl-12 pr-28 py-4 bg-[#333333] border border-gray-700 text-gray-200 placeholder:text-gray-500 rounded-full focus:ring-2 focus:ring-white/50 focus:outline-none transition-shadow shadow-lg"
+              />
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-4">
+                <Mic className="text-gray-400 cursor-pointer hover:text-white" />
+                <AudioLines className="text-gray-400 cursor-pointer hover:text-white" />
+              </div>
+            </form>
+          </motion.div>
+        </div>
+
+      ) : (
+        
+        // --- Chat Interface ---
+        <>
+          <header className="bg-black/30 backdrop-blur-lg border-b border-gray-700/50 p-4 flex justify-between items-center sticky top-0 z-10 shrink-0">
+            <div className="text-center flex-1">
+              <h1 className="text-xl md:text-2xl font-bold text-gray-100 tracking-wide">AI Resume Architect</h1>
             </div>
-            <Button onClick={() => setIsModalOpen(true)} className="bg-green-500 text-white hover:bg-green-600 flex items-center gap-2">
-              <Plus size={16}/> Upload a new resume
+            <Button
+              onClick={handleCopyText}
+              disabled={justCopied || messages.filter(m => m.role === 'assistant').length === 0}
+              className={cn("disabled:bg-gray-700 disabled:text-gray-400 disabled:cursor-not-allowed flex items-center gap-2 transition-all duration-300 rounded-lg shadow-lg", justCopied ? 'bg-emerald-500 hover:bg-emerald-600 w-28' : 'bg-teal-500 hover:bg-teal-600 w-36 text-white')}
+            >
+              {justCopied ? <Check size={18} /> : <Copy size={18} />}
+              {justCopied ? 'Copied!' : 'Copy Resume'}
             </Button>
-          </div>
-          {error && <div className="p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-50" role="alert">{error}</div>}
-          <div className="border border-gray-200 rounded-lg overflow-hidden">
-            <div className="grid grid-cols-12 p-4 bg-gray-50 border-b border-gray-200 font-semibold text-sm text-gray-500 uppercase tracking-wider">
-              <div className="col-span-8">Question</div>
-              <div className="col-span-2">Tags</div>
-              <div className="col-span-2">Status</div>
-            </div>
-            {!activeResume ? (
-              <div className="p-16 text-center">
-                <AlertTriangle size={32} className="mx-auto text-gray-400" />
-                <p className="mt-4 font-semibold text-gray-700">No Questions Yet</p>
-                <p className="text-sm text-gray-500">Upload a resume to generate your first set of questions.</p>
-              </div>
-            ) : (
-              activeResume.questions.map((q, index) => (
-                <div key={index} className="grid grid-cols-12 p-4 items-center border-b border-gray-200 last:border-b-0 hover:bg-gray-50/50">
-                  <div className="col-span-8 text-gray-800 font-medium pr-4">{q.text}</div>
-                  <div className="col-span-2 flex flex-wrap gap-2">
-                    {q.tags.map((tag: string) => <span key={tag} className="text-xs font-semibold bg-gray-100 text-gray-700 px-2 py-1 rounded-md border border-gray-200">{tag}</span>)}
-                  </div>
-                  <div className="col-span-2">
-                    <span className="text-xs font-semibold bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full border border-yellow-200">{q.status}</span>
-                  </div>
+          </header>
+
+          <motion.div variants={containerVariants} initial="hidden" animate="visible" className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
+            {messages.map((m, index) => (
+              <motion.div key={index} variants={messageVariants} layout className={cn("flex items-start gap-3 md:gap-4 w-full", { "justify-end": m.role === 'user' })}>
+                {m.role === 'assistant' && (<div className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-gray-700 border-2 border-gray-600 shadow-md"><Bot size={20} /></div>)}
+                
+                {/* --- FONT SIZE CHANGE IS HERE --- */}
+                <div className={cn(
+                  "text-base rounded-2xl border w-full max-w-2xl px-5 py-3 shadow-lg", // Base styles for both
+                  { "bg-[#27272A] border-gray-700/50 text-gray-200": m.role === 'assistant' }, // AI bubble
+                  { "bg-teal-600/50 border-teal-500/50 text-white": m.role === 'user' } // User bubble
+                )}>
+                  {m.content}
                 </div>
-              ))
-            )}
-          </div>
-          {activeResume && (
-            <div className="mt-6 flex justify-center">
-              <Button 
-                onClick={handleLoadMoreQuestions}
-                disabled={isLoading}
-                className="bg-green-100 text-green-800 font-semibold hover:bg-green-200 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
-              >
-                {isLoading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
-                {isLoading ? "Generating..." : "Give me 5 more questions"}
-              </Button>
+                
+                {m.role === 'user' && (<div className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-teal-500 border-2 border-teal-400 text-white shadow-md"><User size={20} /></div>)}
+              </motion.div>
+            ))}
+
+            <AnimatePresence>
+              {isLoading && (<motion.div variants={messageVariants} initial="hidden" animate="visible" exit="hidden" className="flex items-start gap-3 md:gap-4"><div className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-gray-700 border-2 border-gray-600"><Bot size={20} /></div><div className="bg-gray-800/60 flex items-center space-x-1.5 p-4 rounded-xl border border-gray-700/50"><motion.span animate={{ y: [0, -4, 0] }} transition={{ duration: 0.8, repeat: Infinity }} className="w-2 h-2 bg-gray-400 rounded-full"/><motion.span animate={{ y: [0, -4, 0] }} transition={{ duration: 0.8, repeat: Infinity, delay: 0.1 }} className="w-2 h-2 bg-gray-400 rounded-full"/><motion.span animate={{ y: [0, -4, 0] }} transition={{ duration: 0.8, repeat: Infinity, delay: 0.2 }} className="w-2 h-2 bg-gray-400 rounded-full"/></div></motion.div>)}
+            </AnimatePresence>
+            <div ref={messagesEndRef} />
+          </motion.div>
+          
+          <div className="bg-black/30 backdrop-blur-lg border-t border-gray-700/50 p-4 sticky bottom-0 shrink-0">
+            <div className="max-w-3xl mx-auto">
+              <form onSubmit={handleSubmit} className="relative">
+                <Textarea ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)} placeholder="Continue the conversation..." className="w-full resize-none pr-14 pl-4 py-3 bg-gray-800 border-2 border-gray-600 text-gray-200 placeholder:text-gray-500 rounded-lg focus-visible:ring-2 focus-visible:ring-teal-500" rows={1} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSubmit(e as any); } }}/>
+                <Button type="submit" disabled={isLoading || !input.trim()} className="absolute right-2.5 top-1/2 -translate-y-1/2 bg-teal-500 hover:bg-teal-600 text-white disabled:bg-gray-700" size="icon"><Send size={20} /></Button>
+              </form>
             </div>
-          )}
-        </main>
-      </div>
-    </>
+          </div>
+        </>
+      )}
+    </div>
   );
 }

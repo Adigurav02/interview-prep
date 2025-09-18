@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Search, Bookmark, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Bookmark, ChevronLeft, ChevronRight, Mic } from "lucide-react";
 
 // --- EXPANDED MOCK DATA with 105 questions for 11 pages ---
 const mockQuestions = [
@@ -123,7 +123,7 @@ const companyData = [
   { name: "TikTok", logo: `data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiMzMzQxNTUiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNMTEuNSA0djEwLjVhMi41IDIuNSAwIDAgMS01IDBWNSIvPjxwYXRoIGQ9Im0xNi41IDQuNWEyLjUgMi41IDAgMSAxIDAgNXYtMi41Ii8+PC9zdmc+`, href: "https://www.google.com/search?q=TikTok+interview+questions" },
   { name: "Microsoft", logo: `data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiMzMzQxNTUiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cmVjdCB3aWR0aD0iOSIgaGVpZ2h0PSI5IiB4PSIyIiB5PSIyIiByeD0iMSIvPjxyZWN0IHdpZHRoPSI5IiBoZWlnaHQ9IjkiIHg9IjEzIiB5PSIyIiByeD0iMSIvPjxyZWN0IHdpZHRoPSI5IiBoZWlnaHQ9IjkiIHg9IjIiIHk9IjEzIiByeD0iMSIvPjxyZWN0IHdpZHRoPSI5IiBoZWlnaHQ9IjkiIHg9IjEzIiB5PSIxMyIgcng9IjEiLz48L3N2Zz4=`, href: "https://www.google.com/search?q=Microsoft+interview+questions" },
   { name: "Netflix", logo: `data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiNlNTA5MTQiIHN0cm9rZS13aWR0aD0iMyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNNyAyMFY0bDEwIDE2VjQiLz48L3N2Zz4=`, href: "https://www.google.com/search?q=Netflix+interview+questions" },
-  { name: "Salesforce", logo: `data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZHRoPSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiMwMEFBRkYiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNOS4zMyAxNy42N2ExMi4xMyAxMi4xMyAwIDAgMS00LjMzLTVjMC0yLjQ4IDEuNTgtMy40MyAzLjgzLTMuNTUgMS4wNy0uMDUgMS45LjYgMi4yNSAxLjQxLjQxLS40MyAxLjEyLS44OCAxLjg4LS45MSAyLjQ4LS4wOCAzLjYgMS44MiAzLjM2IDQuMy0uMjIgMi4yOC0xLjY3IDMuNTctMy45MiAzLjYtMS40NS4wMi0yLjIyLS41OC0yLjU1LTEuMjEtLjQ1LjQyLTEuMS43LTEuNzUuNzEtMS4xMy4wMS0xLjcxLS43LTEuNzEtMS45MXoiLz48L3N2Zz4=`, href: "https://www.google.com/search?q=Salesforce+interview+questions" },
+  { name: "Salesforce", logo: `data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZHRoPSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiMwMEFBRkYiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNOS4zMyAxNy42N2ExMi4xMyAxMi4xMyAwIDAgMS00LjMzLTVjMC0yLjQ4IDEuNTgtMy40MyAzLjgzLTMuNTUgMS4wNy0uMDUgMS45LjYgMi4yNSAxLjQxLjQxLS40MyAxLjEyLS44OCAxLjg4LS45MSAyLjQ4LS4wOCAzLjYgMS44MiAzLjM2IDQuMy0uMjIgMi4yOC0xLjY3IDMuNTctMy45MiAzLjYtMS40NS4wMi0yLjIyLS41OC0yLjU1LTEuMjEtLjQ1LjQyLTEuMS43LTEuNzUuNzEtMS4xMy4wMS0xLjcxLS4yLTEuNzEtMS45MXoiLz48L3N2Zz4=`, href: "https://www.google.com/search?q=Salesforce+interview+questions" },
 ];
 
 // --- UPDATED HELPERS for light theme tag styles ---
@@ -216,8 +216,46 @@ const Pagination = ({ currentPage, totalPages, onPageChange }: { currentPage: nu
     );
 };
 
+// ====================================
+// ===== NEW ANSWER SECTION COMPONENT =====
+// ====================================
+const AnswerSection = ({ question, onSave, onClose }) => {
+    const [answer, setAnswer] = useState('');
+    
+    return (
+        <div className="mt-[-1px] p-6 bg-white border-l border-r border-b border-green-500 rounded-b-2xl shadow-xl animate-fadeIn">
+            <div className="relative">
+                <textarea
+                    value={answer}
+                    onChange={(e) => setAnswer(e.target.value)}
+                    placeholder="Type your answer here..."
+                    className="w-full h-40 p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-green-400 text-base text-gray-800"
+                />
+                <span className="absolute bottom-3 right-3 text-sm text-gray-500">
+                    {answer.length} characters
+                </span>
+            </div>
+            <div className="mt-4 flex items-center justify-end gap-4">
+                <button 
+                    onClick={onClose}
+                    className="px-5 py-2 bg-gray-200 text-gray-800 font-semibold rounded-lg hover:bg-gray-300 transition-colors"
+                >
+                    Cancel
+                </button>
+                <button 
+                    onClick={() => onSave(question.id, answer)}
+                    className="px-5 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-colors"
+                >
+                    Save Answer
+                </button>
+            </div>
+        </div>
+    );
+};
+
 export default function InterviewQuestionsPage() {
   const [filteredQuestions, setFilteredQuestions] = useState(mockQuestions);
+  const [activeQuestionId, setActiveQuestionId] = useState<number | null>(null);
   const [difficulty, setDifficulty] = useState('');
   const [category, setCategory] = useState('');
   const [jobType, setJobType] = useState('');
@@ -254,7 +292,14 @@ export default function InterviewQuestionsPage() {
     if (searchTerm) results = results.filter(q => q.text.toLowerCase().includes(searchTerm.toLowerCase()));
     setFilteredQuestions(results);
     setCurrentPage(1);
+    setActiveQuestionId(null);
   }, [difficulty, category, jobType, searchTerm, planType, selectedCompanies]);
+  
+  const handleSaveAnswer = (questionId: number, answer: string) => {
+    console.log(`Saving answer for question ${questionId}:`, answer);
+    alert("Answer saved!");
+    setActiveQuestionId(null);
+  };
 
   const handleCompanySelect = (company: string) => {
     setSelectedCompanies(prev => prev.includes(company) ? prev.filter(c => c !== company) : [...prev, company]);
@@ -276,6 +321,7 @@ export default function InterviewQuestionsPage() {
   const paginate = (pageNumber: number) => {
     if (pageNumber > 0 && pageNumber <= totalPages) {
       setCurrentPage(pageNumber);
+      setActiveQuestionId(null);
     }
   };
 
@@ -395,19 +441,30 @@ export default function InterviewQuestionsPage() {
           {currentQuestions.length > 0 ? (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {currentQuestions.map((q) => (
-                <div key={q.id} className="bg-white p-6 rounded-2xl border border-slate-200 relative transition-all duration-300 hover:shadow-xl hover:-translate-y-2">
-                  <Bookmark className="absolute top-6 left-6 w-5 h-5 text-gray-400 hover:text-green-500 cursor-pointer" />
-                  <span className={`absolute top-6 right-6 text-xs font-bold px-3 py-1 rounded-full ${getDifficultyClass(q.difficulty)}`}>{q.difficulty}</span>
-                  <h2 className="text-xl font-semibold text-slate-900 mt-12">{q.text}</h2>
-                  <div className="mt-4"><span className={`text-sm font-semibold px-3 py-1 rounded-full ${getCategoryClass(q.category)}`}>{q.category}</span></div>
-                  <div className="mt-6">
-                      <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Job Types</h3>
-                      <div className="flex flex-wrap gap-2">{q.jobTypes.map(job => (<span key={job} className="text-xs font-medium px-3 py-1 rounded-full bg-slate-100 text-slate-600">{job}</span>))}</div>
-                  </div>
-                  <div className="mt-6 pt-4 border-t border-slate-200">
-                      <p className="text-sm text-slate-500">{q.companyCount} companies asked this question.</p>
-                      <Link href="/sign-up" className="text-sm font-semibold text-green-600 hover:underline">Sign up to reveal all the companies ↗</Link>
-                  </div>
+                <div key={q.id}>
+                  <button 
+                    onClick={() => setActiveQuestionId(activeQuestionId === q.id ? null : q.id)}
+                    className="w-full text-left"
+                  >
+                    <div className={`bg-white p-6 ${activeQuestionId === q.id ? 'rounded-t-2xl' : 'rounded-2xl'} border ${activeQuestionId === q.id ? 'border-green-500 shadow-xl' : 'border-slate-200'} relative transition-all duration-300 hover:shadow-lg hover:-translate-y-1 h-full flex flex-col`}>
+                      <Bookmark className="absolute top-6 left-6 w-5 h-5 text-gray-400 hover:text-green-500 cursor-pointer" />
+                      <span className={`absolute top-6 right-6 text-xs font-bold px-3 py-1 rounded-full ${getDifficultyClass(q.difficulty)}`}>{q.difficulty}</span>
+                      <h2 className="text-xl font-semibold text-slate-900 mt-12 flex-grow">{q.text}</h2>
+                      <div className="mt-4"><span className={`text-sm font-semibold px-3 py-1 rounded-full ${getCategoryClass(q.category)}`}>{q.category}</span></div>
+                      <div className="mt-6">
+                          <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Job Types</h3>
+                          <div className="flex flex-wrap gap-2">{q.jobTypes.map(job => (<span key={job} className="text-xs font-medium px-3 py-1 rounded-full bg-slate-100 text-slate-600">{job}</span>))}</div>
+                      </div>
+                      <div className="mt-6 pt-4 border-t border-slate-200">
+                          <p className="text-sm text-slate-500">{q.companyCount} companies asked this question.</p>
+                          <Link href="/sign-up" className="text-sm font-semibold text-green-600 hover:underline">Sign up to reveal all the companies ↗</Link>
+                      </div>
+                    </div>
+                  </button>
+
+                  {activeQuestionId === q.id && (
+                    <AnswerSection question={q} onSave={handleSaveAnswer} onClose={() => setActiveQuestionId(null)} />
+                  )}
                 </div>
               ))}
             </div>
