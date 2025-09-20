@@ -1,193 +1,166 @@
 "use client";
 
-import { useState, useRef, useEffect } from 'react';
-import { Pencil, Lightbulb, Send, User, Bot, Loader2 } from 'lucide-react';
-import { Button } from "@/components/ui/button";
+import { useState, useRef, useEffect, FormEvent } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+// Updated icons for new content
+import { Send, Bot, User, Loader2, Sparkles, MessageSquare, TrendingUp, DollarSign } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import ReactMarkdown from 'react-markdown';
+import { cn } from '@/lib/utils';
 
-// Define the structure of a chat message for OpenAI
-interface ChatMessage {
+interface Message {
   role: 'user' | 'assistant';
   content: string;
 }
 
+// --- NEW, FOCUSED CONTENT FOR THE WELCOME SCREEN ---
 const promptCards = [
-    { title: "Master Your Interviews", question: "What common questions can I expect in a financial analyst interview at Boeing?" },
-    { title: "Upgrade Your Resume", question: "What should I highlight if I'm switching industries?" },
-    { title: "Get Your Dream Offer", question: "How do I negotiate a higher offer when switching companies?" },
-    { title: "Make Your Next Move", question: "How can I smoothly transition into a product manager role?" }
-];
-
-const popularQuestions = [
-    "What are top tech companies asking SWEs right now?",
-    "How do I explain a career switch confidently?",
-    "What should my resume highlight for product roles?"
+    { 
+        icon: <MessageSquare size={24} className="text-blue-400" />,
+        title: "Nail the Interview", 
+        question: "How should I answer 'What is your greatest weakness'?" 
+    },
+    { 
+        icon: <DollarSign size={24} className="text-emerald-400" />,
+        title: "Salary Negotiation", 
+        question: "Give me some tips for negotiating a higher salary." 
+    },
+    { 
+        icon: <TrendingUp size={24} className="text-rose-400" />,
+        title: "Career Pathing", 
+        question: "What are the steps to move from a junior to a senior developer role?" 
+    },
 ];
 
 export default function CareerGuidePage() {
-    const [messages, setMessages] = useState<ChatMessage[]>([]);
+    const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const chatContainerRef = useRef<HTMLDivElement>(null);
-    const sidebarChatRef = useRef<HTMLDivElement>(null);
+    const [error, setError] = useState<string | null>(null);
 
-    // Automatically scroll to the bottom when new messages are added
+    const messagesEndRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<HTMLTextAreaElement>(null);
+
     useEffect(() => {
-        if (chatContainerRef.current) {
-            chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
-        }
-        if (sidebarChatRef.current) {
-            sidebarChatRef.current.scrollTop = sidebarChatRef.current.scrollHeight;
-        }
-    }, [messages]);
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [messages, isLoading]);
 
     const handleSendMessage = async (messageText?: string) => {
         const textToSend = messageText || input;
-        if (!textToSend.trim()) return;
+        if (!textToSend.trim() || isLoading) return;
 
-        const newUserMessage: ChatMessage = { role: 'user', content: textToSend };
-        const newMessages = [...messages, newUserMessage];
-        setMessages(newMessages); 
+        const newUserMessage: Message = { role: 'user', content: textToSend };
+        setMessages(prev => [...prev, newUserMessage]); 
         setInput('');
         setIsLoading(true);
+        setError(null);
 
         try {
-            const response = await fetch('/api/chat', {
+            const response = await fetch('/api/career-guide', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    message: textToSend,
-                    history: messages
-                }),
+                body: JSON.stringify({ message: textToSend, history: messages }),
             });
 
+            if (!response.ok) throw new Error((await response.json()).error || 'API request failed');
+
             const data = await response.json();
+            const aiMessage: Message = { role: 'assistant', content: data.reply };
             
-            if (!response.ok) {
-                throw new Error(data.error || 'An unknown error occurred.');
-            }
+            setTimeout(() => {
+                setMessages(prev => [...prev, aiMessage]);
+                setIsLoading(false);
+            }, 500);
 
-            const aiMessage: ChatMessage = { role: 'assistant', content: data.reply };
-            setMessages(prev => [...prev, aiMessage]);
-
-        } catch (error: any) {
-            console.error(error); 
-            const errorMessage: ChatMessage = { role: 'assistant', content: `Sorry, I encountered an error: ${error.message}` };
-            setMessages(prev => [...prev, errorMessage]);
-        } finally {
+        } catch (err: any) {
+            setError(err.message);
             setIsLoading(false);
         }
     };
 
+    const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } };
+    const itemVariants = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: 'easeOut' } } };
+
     return (
-        <div className="bg-white min-h-screen w-full flex text-gray-800">
-            {/* Sidebar */}
-            <aside className="w-1/4 bg-[#2C313D] text-white p-6 flex flex-col h-screen">
-                <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-lg font-semibold">Interview GPT</h2>
-                    <button className="text-gray-400 hover:text-white">
-                        <Pencil size={18} />
-                    </button>
-                </div>
-                <div 
-                    ref={sidebarChatRef}
-                    className="flex-grow text-sm text-gray-400 overflow-y-auto"
-                >
-                    {messages.length === 0 ? (
-                       <p className="text-center pt-16">Your conversations will appear here once you start chatting!</p>
-                    ) : (
-                        <div className="space-y-4">
-                            {messages.map((msg, index) => (
-                                <div key={index} className={`p-3 rounded-lg ${msg.role === 'user' ? 'bg-gray-600' : 'bg-gray-700'}`}>
-                                    <p className="text-white line-clamp-3">{msg.content}</p>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            </aside>
-
-            {/* Main Content */}
-            <main className="w-3/4 flex flex-col h-screen">
-                <div ref={chatContainerRef} className="flex-grow p-6 md:p-10 max-w-4xl mx-auto w-full flex flex-col overflow-y-auto">
-                    
-                    {messages.length > 0 ? (
-                        <div className="space-y-6">
-                            {messages.map((msg, index) => (
-                                <div key={index} className={`flex items-start gap-4 ${msg.role === 'user' ? 'justify-end' : ''}`}>
-                                    {msg.role === 'assistant' && <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0"><Bot size={20} className="text-white"/></div>}
-                                    <div className={`p-4 rounded-lg max-w-xl ${msg.role === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-800'}`}>
-                                        <p>{msg.content}</p>
+        <div className="flex flex-col h-screen bg-[#111827] text-gray-200 overflow-hidden animated-gradient">
+            <AnimatePresence>
+                {messages.length === 0 ? (
+                    <motion.div 
+                        key="welcome"
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        transition={{ duration: 0.3 }}
+                        className="flex flex-col items-center justify-center h-full w-full p-4"
+                    >
+                        <Sparkles className="w-14 h-14 mb-4 text-blue-400" />
+                        <h1 className="text-4xl font-bold text-gray-100 mb-2">Interview GPT</h1>
+                        <p className="text-lg text-gray-400 mb-12">Your personal AI career coach.</p>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl w-full mb-8">
+                            {promptCards.map((card, index) => (
+                                <motion.button
+                                    key={card.title}
+                                    variants={itemVariants}
+                                    initial="hidden"
+                                    animate="visible"
+                                    transition={{ delay: 0.2 + index * 0.1 }}
+                                    onClick={() => handleSendMessage(card.question)}
+                                    className="bg-gray-800/50 border border-gray-700/80 rounded-xl p-6 text-left hover:bg-gray-700/60 transition-colors duration-300"
+                                >
+                                    <div className="flex items-center gap-4">
+                                        {card.icon}
+                                        <h3 className="font-semibold text-gray-200">{card.title}</h3>
                                     </div>
-                                    {msg.role === 'user' && <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0"><User size={20} className="text-gray-600"/></div>}
-                                </div>
+                                    <p className="text-sm text-gray-400 mt-2">{card.question}</p>
+                                </motion.button>
                             ))}
-                             {isLoading && (
-                                <div className="flex items-start gap-4">
-                                    <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0"><Bot size={20} className="text-white"/></div>
-                                    <div className="p-4 rounded-lg bg-gray-100"><Loader2 className="animate-spin" /></div>
-                                </div>
-                            )}
                         </div>
-                    ) : (
-                        <>
-                            {/* Welcome Screen */}
-                            <div className="text-center">
-                                <div className="inline-block p-2 bg-gradient-to-br from-green-300 to-emerald-500 rounded-full shadow-lg mb-4">
-                                     <div className="w-12 h-12 bg-white/50 rounded-full backdrop-blur-sm"></div>
-                                </div>
-                                <h1 className="text-4xl font-bold text-gray-900">Welcome to Interview GPT</h1>
-                                <p className="text-gray-600 mt-2">
-                                    You can ask me anything related to job interviews, resume building, career growth, and more!
-                                </p>
-                            </div>
-                            {/* Prompt Cards */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-10">
-                                {promptCards.map(card => (
-                                    <button key={card.title} onClick={() => handleSendMessage(card.question)} className="bg-white border border-gray-200 rounded-lg p-4 text-left hover:shadow-lg hover:border-gray-300 transition-all">
-                                        <h3 className="font-semibold text-gray-800">{card.title}</h3>
-                                        <p className="text-sm text-gray-500 mt-1">{card.question}</p>
-                                    </button>
-                                ))}
-                            </div>
-                            {/* Popular Questions */}
-                            <div className="bg-yellow-50/70 border border-yellow-200 rounded-lg p-6 mt-10">
-                                <div className="flex items-center gap-3 mb-4">
-                                    <Lightbulb size={20} className="text-yellow-600" />
-                                    <h3 className="font-semibold text-gray-800">Popular Questions to Get You Started:</h3>
-                                </div>
-                                <div className="space-y-3">
-                                    {popularQuestions.map(q => (
-                                        <button key={q} onClick={() => handleSendMessage(q)} className="block text-sm text-gray-700 hover:text-black">
-                                            → {q}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        </>
-                    )}
-                    <div className="flex-grow" /> 
-                </div>
+                    </motion.div>
+                ) : (
+                    <motion.div 
+                        key="chat"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.5 }}
+                        className="flex flex-col h-full"
+                    >
+                        <motion.div variants={containerVariants} initial="hidden" animate="visible" className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
+                            {messages.map((m, index) => (
+                                <motion.div key={index} variants={itemVariants} layout className={cn("flex items-start gap-3 md:gap-4 w-full", { "justify-end": m.role === 'user' })}>
+                                    {m.role === 'assistant' && (<div className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-gray-700 border-2 border-gray-600 shadow-md"><Bot size={20} /></div>)}
+                                    <div className={cn("prose prose-invert prose-p:text-gray-300 prose-headings:text-gray-100 prose-strong:text-white rounded-2xl border w-full max-w-2xl px-5 py-3 shadow-lg", { "bg-blue-600/30 border-blue-500/50": m.role === 'user' }, { "bg-gray-800/60 border-gray-700/50": m.role === 'assistant' })}><ReactMarkdown>{m.content}</ReactMarkdown></div>
+                                    {m.role === 'user' && (<div className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-blue-600 border-2 border-blue-500 text-white shadow-md"><User size={20} /></div>)}
+                                </motion.div>
+                            ))}
+                            <AnimatePresence>
+                                {isLoading && (<motion.div variants={itemVariants} initial="hidden" animate="visible" exit="hidden" className="flex items-start gap-3 md:gap-4"><div className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-gray-700 border-2 border-gray-600"><Bot size={20} /></div><div className="bg-gray-800/60 flex items-center space-x-1.5 p-4 rounded-xl border border-gray-700/50"><motion.span animate={{ y: [0, -4, 0] }} transition={{ duration: 0.8, repeat: Infinity }} className="w-2 h-2 bg-gray-400 rounded-full"/><motion.span animate={{ y: [0, -4, 0] }} transition={{ duration: 0.8, repeat: Infinity, delay: 0.1 }} className="w-2 h-2 bg-gray-400 rounded-full"/><motion.span animate={{ y: [0, -4, 0] }} transition={{ duration: 0.8, repeat: Infinity, delay: 0.2 }} className="w-2 h-2 bg-gray-400 rounded-full"/></div></motion.div>)}
+                            </AnimatePresence>
+                            <div ref={messagesEndRef} />
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
-                {/* Chat Input at the bottom */}
-                <div className="p-6 md:p-10 pt-4 max-w-4xl mx-auto w-full">
-                    <div className="relative">
-                        <div className="absolute left-4 top-1/2 -translate-y-1/2">
-                             <Pencil size={18} className="text-gray-500" />
-                        </div>
-                        <input
-                            type="text"
+            <div className="bg-gray-900/50 backdrop-blur-lg border-t border-gray-700/50 p-4 sticky bottom-0 shrink-0">
+                <div className="max-w-3xl mx-auto">
+                    <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="relative">
+                        <Textarea
+                            ref={inputRef}
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && !isLoading && handleSendMessage()}
-                            placeholder="Ask anything about your interview prep or career move..."
-                            className="w-full pl-12 pr-16 py-4 bg-white border border-gray-200 rounded-lg shadow-sm focus:ring-2 focus:ring-green-500 focus:outline-none"
+                            placeholder="Ask for interview tips, salary advice, and more..."
+                            className="w-full resize-none pr-14 pl-4 py-3 bg-gray-800 border-2 border-gray-600 text-gray-200 placeholder:text-gray-500 rounded-lg focus-visible:ring-2 focus-visible:ring-blue-500"
+                            rows={1}
+                            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
                         />
-                        <button onClick={() => handleSendMessage()} disabled={isLoading} className="absolute right-3 top-1/2 -translate-y-1/2 bg-green-500 text-white p-2 rounded-lg hover:bg-green-600 transition-colors disabled:bg-gray-400">
+                        <Button type="submit" disabled={isLoading || !input.trim()} className="absolute right-2.5 top-1/2 -translate-y-1/2 bg-blue-600 hover:bg-blue-700 text-white disabled:bg-gray-700" size="icon">
                             <Send size={20} />
-                        </button>
-                    </div>
+                        </Button>
+                    </form>
                 </div>
-            </main>
+            </div>
         </div>
     );
 }
