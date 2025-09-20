@@ -10,28 +10,56 @@ import { Button } from "@/components/ui/button";
 import { getCurrentUser, signOut } from "@/lib/actions/auth.action";
 
 // ================================================================= //
-// /// *** PROFILE MODAL COMPONENT (NOW ACCEPTS DYNAMIC PROGRESS) *** ///
+// /// *** MOCK DATABASE FUNCTION *** ///
+// ================================================================= //
+// In a real application, this function would fetch data from Firestore or your database.
+// This simulation makes the component fully functional for demonstration.
+const getUserProgressFromDB = async (userId: string) => {
+  console.log(`Fetching progress for user: ${userId}`);
+  // This is a realistic data structure for tracking progress.
+  return {
+    interviewsAttempted: 5,
+    interviewsCompleted: 2,
+    resumeDrafts: 1,         // 1 indicates a draft has been created
+    resumeATSImproved: true, // Indicates user has improved their ATS score
+    resumeFinalized: false,  // Indicates the final version is not yet ready
+    aptitudeTestsCompleted: 4,
+    aptitudeAverageScore: 82, // Represents an average score of 82%
+    technicalChallengesSolved: 15,
+    loginCount: 21,
+  };
+};
+
+// ================================================================= //
+// /// *** PROFILE MODAL COMPONENT (FULLY FUNCTIONAL) *** ///
 // ================================================================= //
 const ProfileModal = ({ user, userProgress, onClose }) => {
-  // If user data is not yet loaded, don't render anything.
-  if (!user) return null;
+  if (!user || !userProgress) return null;
 
-  // --- Calculations are now based on the userProgress prop ---
-  const questionProgress = (userProgress.totalQuestions > 0) 
-    ? (userProgress.questionsAnswered / userProgress.totalQuestions) * 100 
+  // --- NEW: Accurate Progress Calculations based on your metrics ---
+  const interviewsProgress = (userProgress.interviewsAttempted > 0) 
+    ? (userProgress.interviewsCompleted / userProgress.interviewsAttempted) * 100 
     : 0;
-  const interviewProgress = (userProgress.totalInterviews > 0) 
-    ? (userProgress.interviewsTaken / userProgress.totalInterviews) * 100 
-    : 0;
-  const aptitudeProgress = userProgress.aptitudeScore;
-  const overallProgress = (questionProgress + interviewProgress + aptitudeProgress) / 3;
+  
+  // Resume progress is calculated in stages: 33% for draft, 33% for ATS improvement, 34% for finalization.
+  const resumeProgress = (userProgress.resumeDrafts * 33) + (userProgress.resumeATSImproved ? 33 : 0) + (userProgress.resumeFinalized ? 34 : 0);
 
-  // Reusable progress bar component (no changes needed here)
+  const aptitudeProgress = userProgress.aptitudeAverageScore; // This is already a percentage.
+
+  // Assuming a target of 50 technical challenges for 100% completion.
+  const technicalProgress = (userProgress.technicalChallengesSolved / 50) * 100;
+
+  // --- NEW: Weighted Overall Progress Calculation ---
+  // Weights: Interviews (40%), Resume (20%), Aptitude (20%), Technical (20%)
+  const overallProgress = (interviewsProgress * 0.4) + (resumeProgress * 0.2) + (aptitudeProgress * 0.2) + (technicalProgress * 0.2);
+  
+  const loginCount = userProgress.loginCount;
+
   const ProgressBar = ({ label, percentage, colorClasses }) => (
     <div>
       <div className="flex justify-between items-center mb-1">
         <span className="text-sm font-medium text-slate-300">{label}</span>
-        <span className={`text-sm font-bold ${colorClasses.text}`}>{Math.round(percentage)}%</span>
+        <span className={`text-sm font-bold  ${colorClasses.text}`}>{Math.round(percentage)}%</span>
       </div>
       <div className="w-full bg-slate-700 rounded-full h-2.5">
         <div className={`bg-gradient-to-r ${colorClasses.gradient} h-2.5 rounded-full`} style={{ width: `${percentage}%` }}></div>
@@ -41,14 +69,8 @@ const ProfileModal = ({ user, userProgress, onClose }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex justify-center items-center z-50 animate-fadeIn">
-      <div className="bg-gradient-to-br from-[#1e1e2f] to-[#2a2a40] text-white rounded-2xl shadow-2xl p-8 max-w-sm w-full mx-4 transform transition-all duration-300">
+      <div className="bg-gradient-to-br from-[#1e1e2f] to-[#2a2a40] text-white rounded-2xl shadow-2xl p-8 max-w-sm w-full mx-4">
         <div className="flex flex-col items-center">
-          {/* 
-            CORRECTED SECTION FOR USER INFO:
-            This part correctly displays the user's data. 
-            The `user.name` and `user.email` are fetched from your `getCurrentUser` function.
-            The fallbacks ('Guest User', 'no-email@example.com') are for when a user isn't logged in.
-          */}
           <Image 
             src={user.imageUrl || "/images/image.png"} 
             alt="Profile Picture" 
@@ -58,37 +80,25 @@ const ProfileModal = ({ user, userProgress, onClose }) => {
           />
           <h2 className="text-3xl font-bold text-yellow-400 mt-4">{user.name || "Guest User"}</h2>
           <p className="text-gray-400">{user.email || "no-email@example.com"}</p>
+          <p className="text-sm text-slate-400 mt-1">Total Logins: {loginCount}</p>
         </div>
         
         <div className="mt-8">
           <p className="font-semibold text-pink-400 text-lg mb-4">Your Progress:</p>
           <div className="space-y-5">
-            <ProgressBar label="Questions" percentage={questionProgress} colorClasses={{ text: 'text-green-400', gradient: 'from-green-400 to-teal-400' }} />
-            <ProgressBar label="Interviews" percentage={interviewProgress} colorClasses={{ text: 'text-blue-400', gradient: 'from-blue-400 to-cyan-400' }} />
+            <ProgressBar label="Interviews" percentage={interviewsProgress} colorClasses={{ text: 'text-blue-400', gradient: 'from-blue-400 to-cyan-400' }} />
+            <ProgressBar label="Resume" percentage={resumeProgress} colorClasses={{ text: 'text-green-400', gradient: 'from-green-400 to-teal-400' }} />
             <ProgressBar label="Aptitude" percentage={aptitudeProgress} colorClasses={{ text: 'text-purple-400', gradient: 'from-purple-400 to-pink-400' }} />
+            <ProgressBar label="Technical Skills" percentage={technicalProgress} colorClasses={{ text: 'text-orange-400', gradient: 'from-orange-400 to-yellow-400' }} />
           </div>
         </div>
 
         <div className="mt-10 mb-8 border-t border-slate-700 pt-6 text-center">
             <p className="font-bold text-xl text-yellow-400">Overall Progress</p>
-            <div className="relative h-32 w-32 mx-auto" >
+            <div className="relative h-32 w-32 mx-auto">
                 <svg className="w-full h-full" viewBox="0 0 36 36" transform="rotate(-90 18 18)">
-                    <path
-                        className="text-slate-700"
-                        strokeWidth="4"
-                        stroke="currentColor"
-                        fill="none"
-                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    />
-                    <path
-                        className="text-yellow-400 transition-all duration-500 ease-out"
-                        strokeWidth="4"
-                        strokeDasharray={`${overallProgress > 0 ? overallProgress : 0.1}, 100`}
-                        strokeLinecap="round"
-                        stroke="currentColor"
-                        fill="none"
-                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    />
+                    <path className="text-slate-700" strokeWidth="4" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    <path className="text-yellow-400 transition-all duration-500 ease-out" strokeWidth="4" strokeDasharray={`${overallProgress}, 100`} strokeLinecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
                 </svg>
                 <div className="absolute inset-0 flex items-center justify-center">
                     <span className="text-3xl font-bold text-white mt-[65px]">{Math.round(overallProgress)}%</span>
@@ -104,8 +114,7 @@ const ProfileModal = ({ user, userProgress, onClose }) => {
   );
 };
 
-
-// --- (Keep all your existing constant arrays and the Footer component) ---
+// --- (Constants and Footer Component) ---
 const allFeatures = [
   { title: "Interview Questions", description: "Discover questions that matter. Boost your interview game.", bgColor: "bg-green-900/20", iconColor: "text-green-400", icon: "❓", href: "/interview_question" },
   { title: "Job Finder AI", description: "Find the perfect roles matched to your skills.", bgColor: "bg-blue-900/20", iconColor: "text-blue-400", icon: "💼", href: "/job_finder_ai" }, 
@@ -117,7 +126,6 @@ const allFeatures = [
   { title: "Create Your Own Question AI", description: "Perfect your interview answers for tough questions.", bgColor: "bg-indigo-900/20", iconColor: "text-indigo-400", icon: "🤖", href: "/create_question" },
   { title: "Study Plans", description: "Get structured prep that gets results.", bgColor: "bg-amber-900/20", iconColor: "text-amber-400", icon: "📚", href: "/study_plans" },
 ];
-
 const aiTools = [
   { icon: Sparkles, iconBgColor: "bg-emerald-500/10", iconColor: "text-emerald-400", title: "Interview GPT", description: "AI-powered coaching with real-world interview questions to keep you sharp and confident.", tag: "Beta", tagColor: "bg-blue-500 text-white", href: "/career-guide" },
   { icon: FileText, iconBgColor: "bg-blue-500/10", iconColor: "text-blue-400", title: "Resume AI", description: "Upload your resume and get the exact questions interviewers will ask about your experience.", tag: null, href: "/resume-ai" },
@@ -125,14 +133,12 @@ const aiTools = [
   { icon: MessageSquarePlus, iconBgColor: "bg-purple-500/10", iconColor: "text-purple-400", title: "Create Your Own Question", description: "Customize your own practice set and get AI-powered coaching to master them with confidence.", tag: null, href: "/create-question" },
   { icon: Zap, iconBgColor: "bg-fuchsia-500/10", iconColor: "text-fuchsia-400", title: "Ask Away AI", description: "Get smart, strategic questions to impress interviewers and make sure the role fits you.", tag: "New", tagColor: "bg-blue-500 text-white", href: "#" },
 ];
-
 const jobSearchTools = [
     { icon: FileScan, iconBgColor: "bg-red-500/10", iconColor: "text-red-400", title: "Resume Reviews", description: "Our AI analyzes your resume and gives actionable insights to help you land more interviews.", tag: "New", tagColor: "bg-blue-600 text-white", href: "#"},
     { icon: Mail, iconBgColor: "bg-emerald-500/10", iconColor: "text-emerald-400", title: "Cover Letter Generator", description: "Instantly create job-winning cover letters that match your resume and target the position you want.", tag: "New", tagColor: "bg-blue-600 text-white", href: "#"},
     { icon: Library, iconBgColor: "bg-blue-500/10", iconColor: "text-blue-400", title: "Cover Letter Templates", description: "Browse our collection of 10,000+ professional cover letter templates designed to help you land interviews.", tag: "New", tagColor: "bg-blue-600 text-white", href: "#"},
     { icon: FilePlus2, iconBgColor: "bg-green-500/10", iconColor: "text-green-400", title: "Resume Builder", description: "Generate a professional, ATS-friendly resume in minutes with expert suggestions and instant formatting.", tag: "Coming Soon", tagColor: "bg-slate-600 text-white", href: "#"},
 ];
-
 const Footer = () => {
     return (
         <footer className="bg-[#1e293b] text-slate-400 border-t border-slate-700/50 mt-20">
@@ -181,39 +187,24 @@ const Footer = () => {
     );
 };
 
-
 export default function HomePage() {
   const [user, setUser] = useState(null);
   const [showProfile, setShowProfile] = useState(false);
+  const [userProgress, setUserProgress] = useState(null);
+  const router = useRouter();
+  
   const [isAiToolsMenuOpen, setIsAiToolsMenuOpen] = useState(false);
   const [isJobToolsMenuOpen, setIsJobToolsMenuOpen] = useState(false);
-  const router = useRouter();
-
-  // ================================================================= //
-  // /// *** STATE FOR DYNAMIC USER PROGRESS *** ///
-  // ================================================================= //
-  const [userProgress, setUserProgress] = useState({
-    questionsAnswered: 0,
-    totalQuestions: 200,
-    interviewsTaken: 0,
-    totalInterviews: 20,
-    aptitudeScore: 0,
-  });
 
   useEffect(() => {
     const fetchData = async () => {
-      // This function fetches the user's identity (name, email, etc.)
       const userData = await getCurrentUser();
       setUser(userData);
 
-      // --- IMPORTANT ---
-      // In a real app, you would also fetch the user's progress from your database here
-      // and update the progress state.
-      // Example:
-      // if (userData) {
-      //   const progressData = await getUserProgress(userData.id);
-      //   setUserProgress(progressData);
-      // }
+      if (userData) {
+        const progressData = await getUserProgressFromDB(userData.id);
+        setUserProgress(progressData);
+      }
     };
     fetchData();
   }, []);
@@ -223,25 +214,11 @@ export default function HomePage() {
     router.push("/sign-in");
     router.refresh();
   };
-  
-  // --- Functions to simulate progress updates for testing ---
-  const handleSolveQuestion = () => {
-    setUserProgress(prev => ({
-      ...prev,
-      questionsAnswered: Math.min(prev.questionsAnswered + 10, prev.totalQuestions)
-    }));
-  };
-  const handleTakeInterview = () => {
-    setUserProgress(prev => ({
-      ...prev,
-      interviewsTaken: Math.min(prev.interviewsTaken + 1, prev.totalInterviews)
-    }));
-  };
 
   return (
     <div className="bg-[#0f172a] min-h-screen text-gray-300">
       <header className="bg-[#1e293b]/95 backdrop-blur-lg text-white p-4 flex justify-between items-center shadow-lg sticky top-0 z-50 border-b border-slate-700/50">
-      <div className="flex items-center gap-10">
+        <div className="flex items-center gap-10">
           <Link href="/" className="flex items-center gap-3">
             <h1 className="text-xl font-bold text-gray-100">Prepwise Interview</h1>
           </Link>
@@ -274,7 +251,6 @@ export default function HomePage() {
         </div>
       </header>
       
-      {/* Pass both the user info and their dynamic progress to the modal */}
       {showProfile && <ProfileModal user={user} userProgress={userProgress} onClose={() => setShowProfile(false)} />}
 
       <main className="p-6 md:p-10 max-w-7xl mx-auto">
@@ -287,10 +263,6 @@ export default function HomePage() {
           </div>
           <Image src="/robot.png" alt="AI Robot preparing for an interview" width={400} height={400} className="max-sm:hidden animate-float" />
         </section>
-
-        {/* This is a testing section to show that the progress bars are dynamic */}
-        {/* ================================================================= // */}
-
 
         <section className="mt-16">
           <div className="text-center mb-12 md:mb-16">
@@ -314,40 +286,35 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* /// *** WHY CHOOSE US SECTION *** /// */}
-{/* ================================================================= // */}
-<section className="mt-20 text-center">
-    <h2 className="text-4xl md:text-5xl font-extrabold text-white">Why Prepwise AI?</h2>
-    <p className="text-lg text-slate-400 mt-4 max-w-3xl mx-auto">
-        Go beyond generic advice. Get personalized, data-driven feedback that turns interviews into job offers.
-    </p>
-    <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8">
-        {/* Feature 1: AI-Powered Feedback */}
-        <div className="bg-slate-800 p-8 rounded-2xl border border-slate-700 transform transition-all duration-300 hover:-translate-y-2 hover:border-purple-500/50">
-            <div className="mx-auto w-16 h-16 flex items-center justify-center bg-purple-900/30 rounded-full mb-4">
-                <Sparkles className="w-8 h-8 text-purple-400" />
-            </div>
-            <h3 className="text-2xl font-bold text-white">Instant AI Feedback</h3>
-            <p className="text-slate-400 mt-2">Get real-time analysis on your answers, body language, and speech patterns to build confidence.</p>
-        </div>
-        {/* Feature 2: Tailored Questions */}
-        <div className="bg-slate-800 p-8 rounded-2xl border border-slate-700 transform transition-all duration-300 hover:-translate-y-2 hover:border-green-500/50">
-            <div className="mx-auto w-16 h-16 flex items-center justify-center bg-green-900/30 rounded-full mb-4">
-                <FileText className="w-8 h-8 text-green-400" />
-            </div>
-            <h3 className="text-2xl font-bold text-white">Industry-Specific Questions</h3>
-            <p className="text-slate-400 mt-2">Practice with a massive library of questions tailored to your target role and industry.</p>
-        </div>
-        {/* Feature 3: Progress Tracking */}
-        <div className="bg-slate-800 p-8 rounded-2xl border border-slate-700 transform transition-all duration-300 hover:-translate-y-2 hover:border-yellow-500/50">
-            <div className="mx-auto w-16 h-16 flex items-center justify-center bg-yellow-900/30 rounded-full mb-4">
-                <Zap className="w-8 h-8 text-yellow-400" />
-            </div>
-            <h3 className="text-2xl font-bold text-white">Track Your Improvement</h3>
-            <p className="text-slate-400 mt-2">Our detailed analytics show you exactly where you're excelling and what to focus on next.</p>
-        </div>
-    </div>
-</section>
+        <section className="mt-20 text-center">
+          <h2 className="text-4xl md:text-5xl font-extrabold text-white">Why Prepwise AI?</h2>
+          <p className="text-lg text-slate-400 mt-4 max-w-3xl mx-auto">
+              Go beyond generic advice. Get personalized, data-driven feedback that turns interviews into job offers.
+          </p>
+          <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8">
+              <div className="bg-slate-800 p-8 rounded-2xl border border-slate-700 transform transition-all duration-300 hover:-translate-y-2 hover:border-purple-500/50">
+                  <div className="mx-auto w-16 h-16 flex items-center justify-center bg-purple-900/30 rounded-full mb-4">
+                      <Sparkles className="w-8 h-8 text-purple-400" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-white">Instant AI Feedback</h3>
+                  <p className="text-slate-400 mt-2">Get real-time analysis on your answers, body language, and speech patterns to build confidence.</p>
+              </div>
+              <div className="bg-slate-800 p-8 rounded-2xl border border-slate-700 transform transition-all duration-300 hover:-translate-y-2 hover:border-green-500/50">
+                  <div className="mx-auto w-16 h-16 flex items-center justify-center bg-green-900/30 rounded-full mb-4">
+                      <FileText className="w-8 h-8 text-green-400" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-white">Industry-Specific Questions</h3>
+                  <p className="text-slate-400 mt-2">Practice with a massive library of questions tailored to your target role and industry.</p>
+              </div>
+              <div className="bg-slate-800 p-8 rounded-2xl border border-slate-700 transform transition-all duration-300 hover:-translate-y-2 hover:border-yellow-500/50">
+                  <div className="mx-auto w-16 h-16 flex items-center justify-center bg-yellow-900/30 rounded-full mb-4">
+                      <Zap className="w-8 h-8 text-yellow-400" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-white">Track Your Improvement</h3>
+                  <p className="text-slate-400 mt-2">Our detailed analytics show you exactly where you're excelling and what to focus on next.</p>
+              </div>
+          </div>
+        </section>
 
         <section className="flex flex-col gap-4 w-full mt-16">
           <h2 className="text-3xl font-bold text-yellow-400">See the Magic in Action</h2>
@@ -356,7 +323,6 @@ export default function HomePage() {
             <div className="mt-4"><a href="https://youtu.be/eyI5WkbSckI?si=vkqQGd-n" target="_blank" rel="noopener noreferrer" className="text-blue-400 font-semibold underline hover:text-blue-300 text-lg">Watch Demo Interview</a></div>
           </div>
         </section>
-        
       </main>
       
       <Footer />
