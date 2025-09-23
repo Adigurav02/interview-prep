@@ -141,13 +141,25 @@ export async function sendFriendChallengeInvite(params: SendFriendChallengeInvit
 }
 
 export async function listIncomingInvites(userEmail: string) {
-  const q = await db
-    .collection('friendChallengeInvites')
-    .where('toEmail', '==', userEmail.toLowerCase())
-    .where('status', '==', 'pending')
-    .orderBy('createdAt', 'desc')
-    .get();
-  return q.docs.map((d) => d.data());
+  try {
+    const q = await db
+      .collection('friendChallengeInvites')
+      .where('toEmail', '==', userEmail.toLowerCase())
+      .where('status', '==', 'pending')
+      .get();
+    const invites = q.docs.map((d) => d.data() as any);
+    invites.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return invites;
+  } catch (error) {
+    console.error('Error listing incoming invites, falling back:', error);
+    const q = await db
+      .collection('friendChallengeInvites')
+      .where('toEmail', '==', userEmail.toLowerCase())
+      .get();
+    const invites = q.docs.map((d) => d.data() as any).filter((i) => i.status === 'pending');
+    invites.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return invites;
+  }
 }
 
 export async function acceptInvite(inviteId: string, acceptingUserId: string) {

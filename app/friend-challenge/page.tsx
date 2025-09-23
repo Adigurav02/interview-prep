@@ -22,8 +22,11 @@ interface Challenge {
   type: 'MCQ Quiz' | 'Coding Problem' | 'HR/Behavioral' | 'Rapid Fire';
   title: string;
   content: string;
+  subject?: string; // e.g., JavaScript, Data Structures
+  timeLimitSeconds?: number; // per-challenge time limit
   options?: string[];
   correctAnswer?: string | number;
+  correctAnswerText?: string; // for free-form questions
   boilerplateCode?: string;
   testCases?: { input: any; expected: any };
 }
@@ -42,6 +45,7 @@ interface ChallengeResult {
   userScore: number;
   friendScore: number;
   winner: 'user' | 'friend' | 'tie';
+  correctAnswerText?: string;
 }
 
 const dummyFriends: Friend[] = [
@@ -133,7 +137,8 @@ const SendChallengeModal = ({ challenges, onSend, onClose }: { challenges: Chall
 // --- Challenge Arena ---
 const ChallengeArena = ({ challenge, onComplete }: { challenge: Challenge; onComplete: (score: number) => void; }) => {
     const [userAnswer, setUserAnswer] = useState(challenge.boilerplateCode || "");
-    const timer = useTimer(300, () => handleSubmit()); // 5-minute timer
+    const timeLimit = Math.max(30, Number.isFinite(challenge.timeLimitSeconds || 0) ? (challenge.timeLimitSeconds as number) : 300);
+    const timer = useTimer(timeLimit, () => handleSubmit());
 
     useEffect(() => {
         timer.start();
@@ -143,13 +148,15 @@ const ChallengeArena = ({ challenge, onComplete }: { challenge: Challenge; onCom
         timer.stop();
         let score = 0;
         if (challenge.type === 'MCQ Quiz') {
-            if (userAnswer === challenge.correctAnswer) score = 100;
+            if (userAnswer === challenge.correctAnswer) score = 20; else score = 0;
         } else if (challenge.type === 'Coding Problem') {
             const cleanUserCode = userAnswer.replace(/\s+/g, '');
             const cleanSolution = `function reverseString(str){return str.split('').reverse().join('');}`.replace(/\s+/g, '');
-            if(cleanUserCode.includes(cleanSolution)) score = 100;
+            if(cleanUserCode.includes(cleanSolution)) score = 20; else score = 0;
         } else {
-            score = Math.floor(Math.random() * (95 - 75 + 1)) + 75;
+            const expected = (challenge.correctAnswerText || '').trim().toLowerCase();
+            const given = (userAnswer || '').trim().toLowerCase();
+            score = expected && given === expected ? 20 : 0;
         }
         onComplete(score);
     };
@@ -159,6 +166,9 @@ const ChallengeArena = ({ challenge, onComplete }: { challenge: Challenge; onCom
             <div className="w-full max-w-3xl text-center">
                  <div className="mb-4 text-sm font-semibold bg-slate-800 text-purple-300 px-3 py-1 rounded-full inline-block">{challenge.type}</div>
                  <h2 className="text-3xl font-bold text-white">{challenge.title}</h2>
+                 {challenge.subject && (
+                   <p className="text-sm text-purple-300 mt-1">Subject: {challenge.subject}</p>
+                 )}
                  <p className="text-slate-400 mt-2">{challenge.content}</p>
                  <div className="my-8 flex justify-center items-center gap-2 text-2xl font-mono font-bold text-yellow-400">
                     <Clock size={24} />
@@ -192,7 +202,7 @@ const ChallengeArena = ({ challenge, onComplete }: { challenge: Challenge; onCom
 };
 
 // --- Results Screen ---
-const ResultsScreen = ({ result, onPlayAgain }: { result: ChallengeResult; onPlayAgain: () => void; }) => {
+const ResultsScreen = ({ result, onPlayAgain, onSendNext }: { result: ChallengeResult; onPlayAgain: () => void; onSendNext: () => void; }) => {
     return (
         <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="w-full h-full flex flex-col items-center justify-center p-8 bg-slate-900 rounded-2xl border border-slate-700">
             <h2 className="text-3xl font-bold text-white mb-2">Challenge Complete!</h2>
@@ -201,7 +211,7 @@ const ResultsScreen = ({ result, onPlayAgain }: { result: ChallengeResult; onPla
             <div className="flex gap-8 items-center">
                 <div className={cn("text-center p-6 rounded-lg border-2", result.winner === 'user' ? "bg-green-500/10 border-green-500" : "bg-slate-800 border-slate-700")}>
                     {result.winner === 'user' && <Trophy className="mx-auto text-yellow-400 mb-2" />}
-                    <p className="font-semibold text-white">Your Score</p>
+                    <p className="font-semibold text-white">Your Score (out of 20)</p>
                     <p className="text-5xl font-bold text-green-400">{result.userScore}</p>
                 </div>
                 
@@ -209,12 +219,21 @@ const ResultsScreen = ({ result, onPlayAgain }: { result: ChallengeResult; onPla
                 
                 <div className={cn("text-center p-6 rounded-lg border-2", result.winner === 'friend' ? "bg-red-500/10 border-red-500" : "bg-slate-800 border-slate-700")}>
                     {result.winner === 'friend' && <Medal className="mx-auto text-slate-400 mb-2" />}
-                    <p className="font-semibold text-white">Friend's Score</p>
+                    <p className="font-semibold text-white">Friend's Score (out of 20)</p>
                     <p className="text-5xl font-bold text-red-400">{result.friendScore}</p>
                 </div>
             </div>
+            {typeof result.correctAnswerText === 'string' && result.correctAnswerText.length > 0 && (
+              <div className="mt-8 w-full max-w-2xl text-left bg-slate-800 border border-slate-700 rounded-lg p-4">
+                <p className="text-slate-300 text-sm font-semibold mb-2">Correct answer:</p>
+                <p className="text-slate-200">{result.correctAnswerText}</p>
+              </div>
+            )}
             
-             <Button onClick={onPlayAgain} className="mt-12 bg-purple-600 text-white font-bold py-6 text-lg hover:bg-purple-700">Back to Challenges</Button>
+             <div className="mt-12 flex gap-3">
+               <Button variant="outline" onClick={onPlayAgain}>Back to Challenges</Button>
+               <Button onClick={onSendNext} className="bg-purple-600 text-white font-bold py-6 text-lg hover:bg-purple-700">Send Another Challenge</Button>
+             </div>
         </motion.div>
     );
 };
@@ -231,11 +250,36 @@ export default function FriendChallengePage() {
   const [challengeResult, setChallengeResult] = useState<ChallengeResult | null>(null);
   const [gameState, setGameState] = useState<{ gameId: string | null; opponentId: string | null; roundNumber: number }>(() => ({ gameId: null, opponentId: null, roundNumber: 0 }));
 
+  // Safe JSON fetch to avoid "Unexpected end of JSON input" (e.g., 304/204 responses)
+  const fetchJsonSafe = async (input: RequestInfo | URL, init?: RequestInit) => {
+    const res = await fetch(input, init);
+    let data: any = null;
+    try {
+      const text = await res.text();
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = null;
+    }
+    return { res, data } as const;
+  };
+
   useEffect(() => {
     // Load catalog
-    fetch('/api/friend-challenge/catalog').then(r => r.json()).then(d => setChallenges(d.challenges || [])).catch(() => {});
+    fetchJsonSafe('/api/friend-challenge/catalog')
+      .then(({ data }) => { if (data?.challenges) setChallenges(data.challenges || []); })
+      .catch(() => {});
     // Load incoming invites
-    fetch('/api/friend-challenge/incoming').then(r => r.json()).then(d => { if (d.success) setIncomingInvites(d.invites || []); }).catch(() => {});
+    const loadIncoming = () => {
+      fetchJsonSafe('/api/friend-challenge/incoming')
+        .then(({ data }) => { if (data?.success) setIncomingInvites(data.invites || []); })
+        .catch(() => {});
+    };
+    loadIncoming();
+    // Poll for new invites every 10s while the tab is visible
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') loadIncoming();
+    }, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleStartChallenge = (challenge: Challenge) => {
@@ -245,7 +289,7 @@ export default function FriendChallengePage() {
 
   const handleChallengeComplete = async (userScore: number) => {
     if (!activeChallenge) return;
-    const friendScore = Math.floor(Math.random() * (90 - 60 + 1)) + 60;
+    const friendScore = Math.random() < 0.5 ? 20 : 0;
     let winner: 'user' | 'friend' | 'tie' = 'tie';
     if (userScore > friendScore) winner = 'user';
     if (friendScore > userScore) winner = 'friend';
@@ -254,14 +298,15 @@ export default function FriendChallengePage() {
         challengeTitle: activeChallenge.title,
         userScore,
         friendScore,
-        winner
+        winner,
+        correctAnswerText: activeChallenge.correctAnswerText || (typeof activeChallenge.correctAnswer === 'string' ? String(activeChallenge.correctAnswer) : undefined)
     });
     setActiveChallenge(null);
 
     // record round if we have game context
     if (gameState.gameId && gameState.opponentId) {
       try {
-        await fetch('/api/friend-challenge/record-round', {
+        await fetchJsonSafe('/api/friend-challenge/record-round', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -280,13 +325,12 @@ export default function FriendChallengePage() {
   
   const handleSendChallenge = async (friendEmail: string, challengeId: string) => {
       try {
-        const res = await fetch('/api/friend-challenge/send-invite', {
+        const { res, data } = await fetchJsonSafe('/api/friend-challenge/send-invite', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ toEmail: friendEmail, challengeId })
         });
-        const data = await res.json();
-        if (!data.success) {
+        if (!res.ok || !data?.success) {
           alert(data.message || 'Failed to send invite');
         } else {
           alert('Challenge invite sent');
@@ -298,13 +342,12 @@ export default function FriendChallengePage() {
 
   const handleAcceptInvite = async (invite: IncomingInvite) => {
     try {
-      const res = await fetch('/api/friend-challenge/accept', {
+      const { res, data } = await fetchJsonSafe('/api/friend-challenge/accept', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ inviteId: invite.id })
       });
-      const data = await res.json();
-      if (!data.success) {
+      if (!res.ok || !data?.success) {
         alert(data.message || 'Failed to accept');
         return;
       }
@@ -316,7 +359,7 @@ export default function FriendChallengePage() {
         setActiveChallenge(challenge);
       }
       // refresh incoming invites list
-      fetch('/api/friend-challenge/incoming').then(r => r.json()).then(d => { if (d.success) setIncomingInvites(d.invites || []); });
+      fetchJsonSafe('/api/friend-challenge/incoming').then(({ data }) => { if (data?.success) setIncomingInvites(data.invites || []); });
     } catch {
       alert('Failed to accept invite');
     }
@@ -340,7 +383,11 @@ export default function FriendChallengePage() {
                    </motion.div>
                 ) : challengeResult ? (
                      <motion.div key="results" className="w-full h-full">
-                       <ResultsScreen result={challengeResult} onPlayAgain={() => setChallengeResult(null)} />
+                      <ResultsScreen 
+                        result={challengeResult} 
+                        onPlayAgain={() => setChallengeResult(null)} 
+                        onSendNext={() => setShowSendModal(true)}
+                      />
                     </motion.div>
                 ) : (
                     <motion.div key="dashboard" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -354,22 +401,41 @@ export default function FriendChallengePage() {
                         <div className="bg-slate-900 p-8 rounded-2xl border border-slate-700">
                             <div className="flex items-center gap-3 mb-6">
                                 <Bell className="text-yellow-400" />
-                                <h2 className="text-2xl font-bold">Incoming Challenges</h2>
+                                <h2 className="text-2xl font-bold">Upcoming Challenges</h2>
+                                <div className="ml-auto">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      fetchJsonSafe('/api/friend-challenge/incoming')
+                                        .then(({ data }) => { if (data?.success) setIncomingInvites(data.invites || []); });
+                                    }}
+                                  >
+                                    Refresh
+                                  </Button>
+                                </div>
                             </div>
                             <div className="space-y-4">
                                 {incomingInvites.length === 0 && (
                                   <p className="text-slate-500">No incoming challenges</p>
                                 )}
                                 {incomingInvites.map(invite => (
-                                  <div key={invite.id} className="w-full p-4 rounded-lg bg-slate-800 border border-slate-700">
+                                  <button
+                                    key={invite.id}
+                                    onClick={() => handleAcceptInvite(invite)}
+                                    className="w-full text-left p-4 rounded-lg bg-slate-800 border border-slate-700 hover:bg-slate-700 transition-colors cursor-pointer"
+                                  >
                                     <div className="flex items-center justify-between">
                                       <div>
-                                        <p className="font-semibold">New challenge received</p>
+                                        <p className="font-semibold">{(() => {
+                                          const c = challenges.find(c => c.id === invite.challengeId);
+                                          return c ? `${c.type}: ${c.title}` : 'New challenge received';
+                                        })()}</p>
                                         <p className="text-sm text-slate-400">From user: {invite.fromUserId}</p>
                                       </div>
-                                      <Button size="sm" onClick={() => handleAcceptInvite(invite)}>Accept</Button>
+                                      <span className="text-sm text-slate-300">Click to open</span>
                                     </div>
-                                  </div>
+                                  </button>
                                 ))}
                             </div>
                         </div>
