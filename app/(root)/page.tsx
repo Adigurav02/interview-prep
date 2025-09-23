@@ -123,7 +123,7 @@ const allFeatures = [
   { title: "Resume Generator", description: "Create a resume that gets past bots and grabs recruiter attention.", bgColor: "bg-sky-900/20", iconColor: "text-sky-400", icon: "📝", href: "/resume-generator" },
   { title: "Technical Challenge Hub", description: "Sharpen your skills for technical rounds. Practice common algorithm and data structure problems in a live coding environment.", bgColor: "bg-pink-900/20", iconColor: "text-pink-400", icon: "‍🧑‍💻", href: "/technical-hub" },
   { title: "Aptitude Test", description: "Assess your logical, numerical, and problem-solving skills.", bgColor: "bg-red-900/20", iconColor: "text-red-400", icon: "🧠", href: "/aptitude_test"},
-  { title: "Create Your Own Question AI", description: "Perfect your interview answers for tough questions.", bgColor: "bg-indigo-900/20", iconColor: "text-indigo-400", icon: "🤖", href: "/create_question" },
+  { title: "Friend Challenge", description: "Perfect your interview answers for tough questions.", bgColor: "bg-indigo-900/20", iconColor: "text-indigo-400", icon: "🤖", href: "/friend-challenge" },
   { title: "Study Plans", description: "Get structured prep that gets results.", bgColor: "bg-amber-900/20", iconColor: "text-amber-400", icon: "📚", href: "/study_plans" },
 ];
 const aiTools = [

@@ -109,6 +109,146 @@ export async function getLatestInterviews(
   })) as Interview[];
 }
 
+// ==============================================
+// Friend Challenge: Firestore-backed server actions
+// Collections used:
+// - friendChallengeInvites: { id, fromUserId, toEmail, challengeId, status, createdAt }
+// - friendChallengeRounds: { id, gameId, roundNumber, challengerId, opponentId, challengeId, challengerScore, opponentScore, winner, createdAt }
+// - friendChallengeGames: { id, playerAId, playerBId, aPoints, bPoints, totalRounds, status, createdAt, updatedAt }
+// ==============================================
+
+type InviteStatus = 'pending' | 'accepted' | 'declined' | 'expired';
+
+export interface SendFriendChallengeInviteParams {
+  fromUserId: string;
+  toEmail: string;
+  challengeId: string;
+}
+
+export async function sendFriendChallengeInvite(params: SendFriendChallengeInviteParams) {
+  const { fromUserId, toEmail, challengeId } = params;
+  const inviteRef = db.collection('friendChallengeInvites').doc();
+  const payload = {
+    id: inviteRef.id,
+    fromUserId,
+    toEmail: toEmail.toLowerCase(),
+    challengeId,
+    status: 'pending' as InviteStatus,
+    createdAt: new Date().toISOString(),
+  };
+  await inviteRef.set(payload);
+  return { success: true, inviteId: inviteRef.id };
+}
+
+export async function listIncomingInvites(userEmail: string) {
+  const q = await db
+    .collection('friendChallengeInvites')
+    .where('toEmail', '==', userEmail.toLowerCase())
+    .where('status', '==', 'pending')
+    .orderBy('createdAt', 'desc')
+    .get();
+  return q.docs.map((d) => d.data());
+}
+
+export async function acceptInvite(inviteId: string, acceptingUserId: string) {
+  const inviteDoc = await db.collection('friendChallengeInvites').doc(inviteId).get();
+  if (!inviteDoc.exists) return { success: false, message: 'Invite not found' };
+  const invite = inviteDoc.data() as any;
+  if (invite.status !== 'pending') return { success: false, message: 'Invite not pending' };
+
+  // Create or find a game between the two players
+  const playerAId = invite.fromUserId as string;
+  const playerBId = acceptingUserId;
+
+  const gameRef = db.collection('friendChallengeGames').doc();
+  const gamePayload = {
+    id: gameRef.id,
+    playerAId,
+    playerBId,
+    aPoints: 0,
+    bPoints: 0,
+    totalRounds: 0,
+    status: 'active',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  await gameRef.set(gamePayload);
+
+  // Mark invite accepted
+  await inviteDoc.ref.update({ status: 'accepted' as InviteStatus });
+
+  return { success: true, gameId: gameRef.id, challengeId: invite.challengeId, playerAId, playerBId };
+}
+
+export interface RecordRoundParams {
+  gameId: string;
+  roundNumber: number; // 1..5
+  challengerId: string;
+  opponentId: string;
+  challengeId: string;
+  challengerScore: number; // 0..100
+  opponentScore: number; // 0..100
+}
+
+export async function recordRound(params: RecordRoundParams) {
+  const { gameId, roundNumber, challengerId, opponentId, challengeId, challengerScore, opponentScore } = params;
+
+  // Enforce 5 rounds max
+  const gameRef = db.collection('friendChallengeGames').doc(gameId);
+  const gameSnap = await gameRef.get();
+  if (!gameSnap.exists) return { success: false, message: 'Game not found' };
+  const game = gameSnap.data() as any;
+  if (game.totalRounds >= 5) return { success: false, message: 'Max rounds reached' };
+
+  const roundRef = db.collection('friendChallengeRounds').doc();
+  const winner = challengerScore === opponentScore ? 'tie' : challengerScore > opponentScore ? challengerId : opponentId;
+  await roundRef.set({
+    id: roundRef.id,
+    gameId,
+    roundNumber,
+    challengerId,
+    opponentId,
+    challengeId,
+    challengerScore,
+    opponentScore,
+    winner,
+    createdAt: new Date().toISOString(),
+  });
+
+  // 20 points per round winner
+  const aWon = winner === game.playerAId;
+  const bWon = winner === game.playerBId;
+  const aPoints = game.aPoints + (aWon ? 20 : 0);
+  const bPoints = game.bPoints + (bWon ? 20 : 0);
+  const totalRounds = (game.totalRounds || 0) + 1;
+
+  let status = 'active';
+  let gameWinner: 'A' | 'B' | 'tie' | null = null;
+  if (totalRounds >= 5) {
+    status = 'completed';
+    gameWinner = aPoints === bPoints ? 'tie' : aPoints > bPoints ? 'A' : 'B';
+  }
+
+  await gameRef.update({ aPoints, bPoints, totalRounds, status, updatedAt: new Date().toISOString(), gameWinner: gameWinner || null });
+
+  return { success: true, roundId: roundRef.id, aPoints, bPoints, totalRounds, status, gameWinner };
+}
+
+export async function getGame(gameId: string) {
+  const snap = await db.collection('friendChallengeGames').doc(gameId).get();
+  if (!snap.exists) return null;
+  return snap.data();
+}
+
+export async function listRounds(gameId: string) {
+  const q = await db
+    .collection('friendChallengeRounds')
+    .where('gameId', '==', gameId)
+    .orderBy('roundNumber', 'asc')
+    .get();
+  return q.docs.map((d) => d.data());
+}
+
 export async function getInterviewsByUserId(
   userId: string
 ): Promise<Interview[] | null> {
