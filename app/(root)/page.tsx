@@ -12,19 +12,16 @@ import { getCurrentUser, signOut } from "@/lib/actions/auth.action";
 // ================================================================= //
 // /// *** MOCK DATABASE FUNCTION *** ///
 // ================================================================= //
-// In a real application, this function would fetch data from Firestore or your database.
-// This simulation makes the component fully functional for demonstration.
 const getUserProgressFromDB = async (userId: string) => {
   console.log(`Fetching progress for user: ${userId}`);
-  // This is a realistic data structure for tracking progress.
   return {
     interviewsAttempted: 5,
     interviewsCompleted: 2,
-    resumeDrafts: 1,         // 1 indicates a draft has been created
-    resumeATSImproved: true, // Indicates user has improved their ATS score
-    resumeFinalized: false,  // Indicates the final version is not yet ready
+    resumeDrafts: 1,
+    resumeATSImproved: true,
+    resumeFinalized: false,
     aptitudeTestsCompleted: 4,
-    aptitudeAverageScore: 82, // Represents an average score of 82%
+    aptitudeAverageScore: 82,
     technicalChallengesSolved: 15,
     loginCount: 21,
   };
@@ -36,30 +33,21 @@ const getUserProgressFromDB = async (userId: string) => {
 const ProfileModal = ({ user, userProgress, onClose }) => {
   if (!user || !userProgress) return null;
 
-  // --- NEW: Accurate Progress Calculations based on your metrics ---
   const interviewsProgress = (userProgress.interviewsAttempted > 0) 
     ? (userProgress.interviewsCompleted / userProgress.interviewsAttempted) * 100 
     : 0;
   
-  // Resume progress is calculated in stages: 33% for draft, 33% for ATS improvement, 34% for finalization.
   const resumeProgress = (userProgress.resumeDrafts * 33) + (userProgress.resumeATSImproved ? 33 : 0) + (userProgress.resumeFinalized ? 34 : 0);
-
-  const aptitudeProgress = userProgress.aptitudeAverageScore; // This is already a percentage.
-
-  // Assuming a target of 50 technical challenges for 100% completion.
+  const aptitudeProgress = userProgress.aptitudeAverageScore;
   const technicalProgress = (userProgress.technicalChallengesSolved / 50) * 100;
-
-  // --- NEW: Weighted Overall Progress Calculation ---
-  // Weights: Interviews (40%), Resume (20%), Aptitude (20%), Technical (20%)
   const overallProgress = (interviewsProgress * 0.4) + (resumeProgress * 0.2) + (aptitudeProgress * 0.2) + (technicalProgress * 0.2);
-  
   const loginCount = userProgress.loginCount;
 
   const ProgressBar = ({ label, percentage, colorClasses }) => (
     <div>
       <div className="flex justify-between items-center mb-1">
         <span className="text-sm font-medium text-slate-300">{label}</span>
-        <span className={`text-sm font-bold  ${colorClasses.text}`}>{Math.round(percentage)}%</span>
+        <span className={`text-sm font-bold ${colorClasses.text}`}>{Math.round(percentage)}%</span>
       </div>
       <div className="w-full bg-slate-700 rounded-full h-2.5">
         <div className={`bg-gradient-to-r ${colorClasses.gradient} h-2.5 rounded-full`} style={{ width: `${percentage}%` }}></div>
@@ -101,7 +89,7 @@ const ProfileModal = ({ user, userProgress, onClose }) => {
                     <path className="text-yellow-400 transition-all duration-500 ease-out" strokeWidth="4" strokeDasharray={`${overallProgress}, 100`} strokeLinecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
                 </svg>
                 <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-3xl font-bold text-white mt-[65px]">{Math.round(overallProgress)}%</span>
+                    <span className="text-3xl font-bold text-white">{Math.round(overallProgress)}%</span>
                 </div>
             </div>
         </div>
@@ -126,19 +114,7 @@ const allFeatures = [
   { title: "Friend Challenge", description: "Perfect your interview answers for tough questions.", bgColor: "bg-indigo-900/20", iconColor: "text-indigo-400", icon: "🤖", href: "/friend-challenge" },
   { title: "Study Plans", description: "Get structured prep that gets results.", bgColor: "bg-amber-900/20", iconColor: "text-amber-400", icon: "📚", href: "/study_plans" },
 ];
-const aiTools = [
-  { icon: Sparkles, iconBgColor: "bg-emerald-500/10", iconColor: "text-emerald-400", title: "Interview GPT", description: "AI-powered coaching with real-world interview questions to keep you sharp and confident.", tag: "Beta", tagColor: "bg-blue-500 text-white", href: "/career-guide" },
-  { icon: FileText, iconBgColor: "bg-blue-500/10", iconColor: "text-blue-400", title: "Resume AI", description: "Upload your resume and get the exact questions interviewers will ask about your experience.", tag: null, href: "/resume-ai" },
-  { icon: Briefcase, iconBgColor: "bg-orange-500/10", iconColor: "text-orange-400", title: "Job AI", description: "Paste any job description to generate the most likely interview questions you'll face.", tag: null, href: "/job-finder-ai" },
-  { icon: MessageSquarePlus, iconBgColor: "bg-purple-500/10", iconColor: "text-purple-400", title: "Create Your Own Question", description: "Customize your own practice set and get AI-powered coaching to master them with confidence.", tag: null, href: "/create-question" },
-  { icon: Zap, iconBgColor: "bg-fuchsia-500/10", iconColor: "text-fuchsia-400", title: "Ask Away AI", description: "Get smart, strategic questions to impress interviewers and make sure the role fits you.", tag: "New", tagColor: "bg-blue-500 text-white", href: "#" },
-];
-const jobSearchTools = [
-    { icon: FileScan, iconBgColor: "bg-red-500/10", iconColor: "text-red-400", title: "Resume Reviews", description: "Our AI analyzes your resume and gives actionable insights to help you land more interviews.", tag: "New", tagColor: "bg-blue-600 text-white", href: "#"},
-    { icon: Mail, iconBgColor: "bg-emerald-500/10", iconColor: "text-emerald-400", title: "Cover Letter Generator", description: "Instantly create job-winning cover letters that match your resume and target the position you want.", tag: "New", tagColor: "bg-blue-600 text-white", href: "#"},
-    { icon: Library, iconBgColor: "bg-blue-500/10", iconColor: "text-blue-400", title: "Cover Letter Templates", description: "Browse our collection of 10,000+ professional cover letter templates designed to help you land interviews.", tag: "New", tagColor: "bg-blue-600 text-white", href: "#"},
-    { icon: FilePlus2, iconBgColor: "bg-green-500/10", iconColor: "text-green-400", title: "Resume Builder", description: "Generate a professional, ATS-friendly resume in minutes with expert suggestions and instant formatting.", tag: "Coming Soon", tagColor: "bg-slate-600 text-white", href: "#"},
-];
+
 const Footer = () => {
     return (
         <footer className="bg-[#1e293b] text-slate-400 border-t border-slate-700/50 mt-20">
@@ -192,9 +168,6 @@ export default function HomePage() {
   const [showProfile, setShowProfile] = useState(false);
   const [userProgress, setUserProgress] = useState(null);
   const router = useRouter();
-  
-  const [isAiToolsMenuOpen, setIsAiToolsMenuOpen] = useState(false);
-  const [isJobToolsMenuOpen, setIsJobToolsMenuOpen] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -217,26 +190,24 @@ export default function HomePage() {
 
   return (
     <div className="bg-[#0f172a] min-h-screen text-gray-300">
+      {/* --- THIS IS THE UPDATED HEADER SECTION --- */}
       <header className="bg-[#1e293b]/95 backdrop-blur-lg text-white p-4 flex justify-between items-center shadow-lg sticky top-0 z-50 border-b border-slate-700/50">
-        <div className="flex items-center gap-10">
+        {/* Left Section: Logo */}
+        <div className="flex-1 flex justify-start">
           <Link href="/" className="flex items-center gap-3">
             <h1 className="text-xl font-bold text-gray-100">Prepwise Interview</h1>
           </Link>
-          <nav className="hidden md:flex items-center gap-8 text-sm font-semibold text-gray-400">
-            <Link href="/interview_question" className="hover:text-white transition-colors">Interview Questions</Link>
-            <div className="relative" onMouseEnter={() => setIsAiToolsMenuOpen(true)} onMouseLeave={() => setIsAiToolsMenuOpen(false)}>
-              <button className="flex items-center gap-1 hover:text-white transition-colors">Interview AI Tools <ChevronDown size={16} /></button>
-              {isAiToolsMenuOpen && ( <div className="absolute top-full pt-3 w-80"><div className="bg-slate-800 rounded-xl shadow-2xl border border-slate-700 p-2 text-left animate-fadeIn"><div className="space-y-1">{aiTools.map((tool) => ( <Link key={tool.title} href={tool.href} className="block p-3 rounded-lg hover:bg-slate-700"><div className="flex items-start gap-4"><div className={`w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-lg ${tool.iconBgColor}`}><tool.icon className={tool.iconColor} size={18} /></div><div><h3 className="font-bold text-base text-slate-200 flex items-center gap-2">{tool.title}{tool.tag && (<span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${tool.tagColor}`}>{tool.tag}</span>)}</h3><p className="text-sm text-slate-400 mt-1">{tool.description}</p></div></div></Link> ))}</div></div></div> )}
-            </div>
-            <Link href="/study_plans" className="hover:text-white transition-colors">Study Plans</Link>
-            <div className="relative" onMouseEnter={() => setIsJobToolsMenuOpen(true)} onMouseLeave={() => setIsJobToolsMenuOpen(false)}>
-              <button className="flex items-center gap-1 hover:text-white transition-colors">Job Search Tools <ChevronDown size={16} /></button>
-              {isJobToolsMenuOpen && ( <div className="absolute top-full pt-3 w-80"><div className="bg-slate-800 rounded-xl shadow-2xl border border-slate-700 p-2 text-left animate-fadeIn"><div className="space-y-1">{jobSearchTools.map((tool) => ( <Link key={tool.title} href={tool.href} className="block p-3 rounded-lg hover:bg-slate-700"><div className="flex items-start gap-4"><div className={`w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-lg ${tool.iconBgColor}`}><tool.icon className={tool.iconColor} size={18} /></div><div><h3 className="font-bold text-base text-slate-200 flex items-center gap-2">{tool.title}{tool.tag && (<span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${tool.tagColor}`}>{tool.tag}</span>)}</h3><p className="text-sm text-slate-400 mt-1">{tool.description}</p></div></div></Link> ))}</div></div></div> )}
-            </div>
-            <Link href="/blog" className="hover:text-white transition-colors">Blog</Link>
-          </nav>
         </div>
-        <div className="flex items-center gap-4">
+        
+        {/* Center Section: Navigation */}
+        <nav className="hidden md:flex flex-1 justify-center items-center gap-8 text-sm font-semibold text-gray-400">
+          <Link href="/interview_question" className="hover:text-white transition-colors">Interview Questions</Link>
+          <Link href="/study_plans" className="hover:text-white transition-colors">Study Plans</Link>
+          <Link href="/blog" className="hover:text-white transition-colors">Blog</Link>
+        </nav>
+        
+        {/* Right Section: Auth Buttons */}
+        <div className="flex-1 flex justify-end items-center gap-4">
           {user ? (
             <>
               <Button variant="outline" onClick={() => setShowProfile(true)} className="font-semibold text-slate-300 border-slate-600 hover:bg-slate-700 hover:text-white transition-all px-4">Profile</Button>
